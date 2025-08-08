@@ -1,155 +1,329 @@
-# TikTok Content Extractor
+# TikTok Content Extractor 🎬
 
-A Python-based system for automatically extracting valuable segments from long educational recordings and preparing them for short-form content (TikTok, Reels, Shorts).
+A powerful Python-based system for automatically extracting high-value segments from long educational recordings and preparing them for short-form content creation (TikTok, Reels, Shorts, YouTube Shorts).
 
-## Overview
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)](https://github.com/yourusername/tiktok_agent)
 
-This system helps content creators efficiently process long educational recordings by:
-1. Transcribing audio with timestamps using Whisper
-2. Segmenting into overlapping chunks (45s with 10s overlap)
-3. Generating embeddings for semantic analysis
-4. Evaluating content value using GPT-4
-5. Exporting high-value segments for editing
+## 🎯 Overview
 
-## Features
+This intelligent content extraction system helps creators efficiently process long educational recordings by:
 
-- **Automatic Transcription**: Uses OpenAI Whisper for accurate transcription
-- **Smart Segmentation**: Creates overlapping segments to capture complete thoughts
-- **Semantic Analysis**: Uses sentence-transformers for content similarity
-- **AI Evaluation**: GPT-4 powered content quality assessment
-- **Multiple Output Formats**: JSON, CSV, and detailed summaries
-- **Batch Processing**: Process multiple files efficiently
+1. **🎤 Automatic Transcription** - Uses OpenAI Whisper for accurate timestamped transcription
+2. **✂️ Smart Segmentation** - Creates overlapping segments to capture complete thoughts
+3. **🧠 Semantic Analysis** - Uses sentence-transformers for content similarity and clustering
+4. **⭐ AI Evaluation** - GPT-4 powered content quality assessment
+5. **📊 Multiple Output Formats** - JSON, CSV, and detailed summaries
+6. **⚡ Batch Processing** - Process multiple files efficiently
 
-## Project Status
-✅ Initial Implementation Complete 🚧
+Perfect for data science tutorials, educational content, podcasts, and any long-form video that needs to be converted into engaging short-form content.
 
-See the [SPECS](SPECS/content_extractor_spec.md) folder for detailed technical specifications.
+## ✨ Features
 
-## Requirements
-- Python 3.8+
-- FFmpeg (system dependency for video processing)
+### Core Capabilities
+- **🎥 Multi-format Support**: MP4, MOV, AVI, MKV, and more
+- **🎯 Intelligent Segmentation**: 45s segments with 10s overlap for complete thoughts
+- **🔍 Semantic Analysis**: Find related content and cluster similar segments
+- **📈 Quality Scoring**: AI-powered evaluation of educational value
+- **📁 Batch Processing**: Handle multiple files efficiently
+- **🔄 Configurable Parameters**: Customize segment length, overlap, and thresholds
+
+### Output Formats
+- **JSON**: Complete results with metadata and embeddings
+- **CSV**: Spreadsheet-friendly format for analysis
+- **Console Summary**: Key statistics and top segments
+- **Detailed Reports**: Comprehensive analysis and recommendations
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.8 or higher
+- FFmpeg (for video processing)
 - GPU recommended for better performance
 - No paid API dependencies - uses free open-source models
 
-## Quick Start
-
-### 1. Setup Environment
+### 1. Clone and Setup
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/tiktok_agent.git
+cd tiktok_agent
+
 # Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Install FFmpeg (if not already installed)
+### 2. Install FFmpeg
 ```bash
-# On Ubuntu/Debian
+# Ubuntu/Debian
 sudo apt update && sudo apt install ffmpeg
 
-# On macOS with Homebrew
+# macOS with Homebrew
 brew install ffmpeg
 
-# On Windows
+# Windows
 # Download from https://ffmpeg.org/download.html
+# Add to PATH environment variable
 ```
 
 ### 3. Run the Extractor
 
-#### Using CLI:
+#### Command Line Interface
 ```bash
+# Basic usage
+python -m src path/to/your/video.mp4
+
+# With custom output and CSV export
 python -m src path/to/your/video.mp4 -o results.json --export-csv segments.csv
+
+# With custom configuration
+python -m src path/to/your/video.mp4 --segment-duration 60 --overlap 15 --threshold 0.8
 ```
 
-#### Using Python:
+#### Python API
 ```python
 from src.content_extractor import ContentExtractor
 from src.models import ProcessingConfig
 
-# Configure
+# Configure processing parameters
 config = ProcessingConfig(
-    segment_duration=45,
-    overlap_duration=10,
-    min_score_threshold=0.7
+    segment_duration=45,      # Segment length in seconds
+    overlap_duration=10,      # Overlap between segments
+    min_score_threshold=0.7,  # Minimum quality score
+    whisper_model="base"      # Whisper model size
 )
 
-# Initialize and process
+# Initialize extractor
 extractor = ContentExtractor(config)
+
+# Process video file
 result = extractor.process_video_file("path/to/video.mp4", "results.json")
 
 # View results
 print(f"Found {len(result.high_value_segments)} high-value segments")
+print(f"Average quality score: {result.summary.average_score:.2f}")
+
+# Access individual segments
+for segment in result.high_value_segments:
+    print(f"Segment {segment.start_time:.1f}s - {segment.end_time:.1f}s")
+    print(f"Score: {segment.value_score:.2f}")
+    print(f"Text: {segment.text[:100]}...")
+    print("---")
 ```
 
-### 4. View Results
-- **JSON Output**: Complete results with metadata
-- **CSV Export**: Spreadsheet-friendly format
-- **Console Summary**: Key statistics and top segments
-
-## Configuration
+## ⚙️ Configuration
 
 ### Processing Parameters
-- `segment_duration`: Length of each segment (default: 45s)
-- `overlap_duration`: Overlap between segments (default: 10s)
-- `min_score_threshold`: Minimum quality score (default: 0.7)
-- `whisper_model`: Whisper model size (tiny/base/small/medium/large)
 
-### Example Config File
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `segment_duration` | 45 | Length of each segment in seconds |
+| `overlap_duration` | 10 | Overlap between segments in seconds |
+| `min_score_threshold` | 0.7 | Minimum quality score (0-1) |
+| `whisper_model` | "base" | Whisper model size (tiny/base/small/medium/large) |
+| `embedding_model` | "all-MiniLM-L6-v2" | Sentence transformer model |
+
+### Configuration File
+Create a `config.json` file for persistent settings:
+
 ```json
 {
     "segment_duration": 45,
     "overlap_duration": 10,
     "min_score_threshold": 0.7,
     "whisper_model": "base",
-    "embedding_model": "all-MiniLM-L6-v2"
+    "embedding_model": "all-MiniLM-L6-v2",
+    "batch_size": 4,
+    "gpu_acceleration": true
 }
 ```
 
-## Output Format
+## 📊 Output Format
 
 ### High-Value Segments Include:
-- **Timestamps**: Precise start/end times
-- **Transcribed Text**: Clean, readable text
-- **Quality Score**: 0-1 rating with reasoning
-- **Confidence**: Transcription confidence
-- **Embeddings**: For similarity analysis
+- **⏰ Timestamps**: Precise start/end times
+- **📝 Transcribed Text**: Clean, readable text
+- **⭐ Quality Score**: 0-1 rating with detailed reasoning
+- **🎯 Confidence**: Transcription confidence level
+- **🧠 Embeddings**: For similarity analysis and clustering
 
-### Example Output:
+### Example Output Structure:
 ```json
 {
-    "segments": [...],
-    "high_value_segments": [
+    "metadata": {
+        "input_file": "tutorial.mp4",
+        "processing_time": "2024-01-15T10:30:00Z",
+        "total_duration": 3600.5,
+        "whisper_model": "base"
+    },
+    "segments": [
         {
             "start_time": 120.5,
             "end_time": 165.2,
-            "text": "Here's a practical example of using pandas...",
+            "text": "Here's a practical example of using pandas for data analysis...",
+            "confidence": 0.95,
+            "embedding": [0.1, 0.2, ...],
             "value_score": 0.85,
-            "reasoning": "Clear explanation with practical demonstration"
+            "reasoning": "Clear explanation with practical demonstration and code examples"
         }
     ],
+    "high_value_segments": [...],
     "summary": {
         "total_segments": 24,
         "high_value_count": 8,
-        "average_score": 0.72
+        "average_score": 0.72,
+        "processing_duration": 125.3
     }
 }
 ```
 
-## Testing
+## 🧪 Testing
 
-Run the test suite:
+Run the comprehensive test suite:
+
 ```bash
 # Run all tests
 pytest tests/
 
-# Run with coverage
-pytest --cov=src tests/
+# Run with coverage report
+pytest --cov=src tests/ --cov-report=html
 
 # Run specific test categories
 pytest tests/test_core.py
 pytest tests/test_data_driven.py
+
+# Run performance benchmarks
+pytest tests/test_benchmark.py
 ```
 
-## License
-MIT 
+## 📁 Project Structure
+
+```
+tiktok_agent/
+├── src/                    # Main source code
+│   ├── __main__.py        # CLI entry point
+│   ├── content_extractor.py  # Main orchestrator
+│   ├── transcription.py   # Whisper transcription
+│   ├── segmentation.py    # Video segmentation
+│   ├── embeddings.py      # Semantic embeddings
+│   ├── evaluation.py      # AI content evaluation
+│   ├── video_processing.py # Video/audio processing
+│   └── models.py          # Data models
+├── tests/                 # Test suite
+├── data/                  # Sample videos and data
+├── SPECS/                 # Technical specifications
+├── requirements.txt       # Python dependencies
+└── README.md             # This file
+```
+
+## 🔧 Advanced Usage
+
+### Batch Processing
+```python
+import os
+from src.content_extractor import ContentExtractor
+
+extractor = ContentExtractor()
+
+# Process all videos in a directory
+video_dir = "path/to/videos/"
+for video_file in os.listdir(video_dir):
+    if video_file.endswith(('.mp4', '.mov', '.avi')):
+        result = extractor.process_video_file(
+            os.path.join(video_dir, video_file),
+            f"results_{video_file}.json"
+        )
+```
+
+### Custom Evaluation Criteria
+```python
+from src.evaluation import ContentEvaluator
+
+# Custom evaluation prompt
+custom_prompt = """
+Evaluate this educational content segment for:
+1. Practical value (0-1)
+2. Clarity of explanation (0-1)
+3. Engagement potential (0-1)
+4. Actionability (0-1)
+"""
+
+evaluator = ContentEvaluator(custom_prompt=custom_prompt)
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+# Clone and setup development environment
+git clone https://github.com/yourusername/tiktok_agent.git
+cd tiktok_agent
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+pip install -e .  # Install in development mode
+
+# Run tests
+pytest tests/
+```
+
+## 📈 Performance Tips
+
+1. **GPU Acceleration**: Use CUDA-enabled PyTorch for faster processing
+2. **Model Selection**: Choose appropriate Whisper model size for your needs
+3. **Batch Processing**: Process multiple files together for efficiency
+4. **Memory Management**: Adjust batch sizes based on available RAM
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**FFmpeg not found:**
+```bash
+# Ensure FFmpeg is installed and in PATH
+ffmpeg -version
+```
+
+**CUDA out of memory:**
+```python
+# Reduce batch size or use CPU
+config = ProcessingConfig(batch_size=1, gpu_acceleration=False)
+```
+
+**Whisper model download issues:**
+```python
+# Use smaller model or check internet connection
+config = ProcessingConfig(whisper_model="tiny")
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [OpenAI Whisper](https://github.com/openai/whisper) for transcription
+- [Sentence Transformers](https://www.sbert.net/) for embeddings
+- [MoviePy](https://zulko.github.io/moviepy/) for video processing
+- [FFmpeg](https://ffmpeg.org/) for media handling
+
+## 📞 Support
+
+- 📧 Email: your.email@example.com
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/tiktok_agent/issues)
+- 📖 Documentation: [Wiki](https://github.com/yourusername/tiktok_agent/wiki)
+
+---
+
+**Made with ❤️ for content creators** 
