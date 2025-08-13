@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--overlap-duration", type=int, default=10, help="Overlap duration in seconds")
     parser.add_argument("--min-score", type=float, default=0.7, help="Minimum score threshold")
     parser.add_argument("--whisper-model", default="base", help="Whisper model size")
+    parser.add_argument("--skip-eval", action="store_true", help="Skip LLM evaluation step")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     parser.add_argument("--export-csv", help="Export results to CSV file")
     
@@ -65,7 +66,7 @@ def main():
         
         # Process video file
         logger.info(f"Processing: {args.video_file}")
-        result = extractor.process_video_file(args.video_file, args.output)
+        result = extractor.process_video_file(args.video_file, args.output, skip_evaluation=args.skip_eval)
         
         # Export to CSV if requested
         if args.export_csv:

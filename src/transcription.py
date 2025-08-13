@@ -7,6 +7,9 @@ import whisper
 from typing import List, Dict, Any
 from pathlib import Path
 import time
+import os
+import wave
+import numpy as np
 
 from .models import Segment
 
@@ -27,12 +30,53 @@ class WhisperTranscriber:
         self.model = None
         logger.info(f"Initializing Whisper model: {model_name}")
     
+    def _ensure_ffmpeg_available(self) -> None:
+        """Ensure ffmpeg binary is available on PATH using imageio-ffmpeg if needed"""
+        try:
+            import shutil
+            if shutil.which("ffmpeg"):
+                return
+            import imageio_ffmpeg as iio
+            ffmpeg_exe = iio.get_ffmpeg_exe()
+            ffmpeg_dir = os.path.dirname(ffmpeg_exe)
+            os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_exe
+            os.environ["FFMPEG_BINARY"] = ffmpeg_exe
+            os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+            logger.info(f"Configured ffmpeg from imageio-ffmpeg: {ffmpeg_exe}")
+        except Exception as e:
+            logger.warning(f"Could not auto-configure ffmpeg: {e}")
+    
     def load_model(self):
         """Load Whisper model"""
         if self.model is None:
             logger.info(f"Loading Whisper model: {self.model_name}")
             self.model = whisper.load_model(self.model_name)
             logger.info("Whisper model loaded successfully")
+    
+    def _read_wav_as_float32(self, wav_path: str) -> np.ndarray:
+        """Read a PCM WAV file and return float32 mono waveform in range [-1, 1]"""
+        with wave.open(wav_path, 'rb') as wf:
+            num_channels = wf.getnchannels()
+            sample_width = wf.getsampwidth()
+            sample_rate = wf.getframerate()
+            num_frames = wf.getnframes()
+            frames = wf.readframes(num_frames)
+        
+        if sample_width != 2:
+            raise ValueError(f"Unsupported WAV sample width: {sample_width*8} bits. Expected 16-bit PCM.")
+        
+        audio = np.frombuffer(frames, dtype=np.int16)
+        if num_channels > 1:
+            audio = audio.reshape(-1, num_channels).mean(axis=1).astype(np.int16)
+        
+        # Normalize to float32 -1..1
+        audio_float = (audio.astype(np.float32) / 32768.0).clip(-1.0, 1.0)
+        
+        # Whisper expects 16kHz; our extraction enforces 16kHz
+        if sample_rate != 16000:
+            logger.warning(f"WAV sample rate is {sample_rate}, expected 16000. Results may be degraded.")
+        
+        return audio_float
     
     def transcribe(self, audio_path: str) -> Dict[str, Any]:
         """
@@ -44,17 +88,29 @@ class WhisperTranscriber:
         Returns:
             Dictionary with transcription results
         """
+        self._ensure_ffmpeg_available()
         self.load_model()
         
         logger.info(f"Transcribing: {audio_path}")
         start_time = time.time()
         
         try:
-            result = self.model.transcribe(
-                audio_path,
-                word_timestamps=True,
-                verbose=True
-            )
+            # Prefer direct WAV read to avoid external ffmpeg calls
+            if str(audio_path).lower().endswith('.wav') and Path(audio_path).exists():
+                audio_array = self._read_wav_as_float32(audio_path)
+                result = self.model.transcribe(
+                    audio_array,
+                    word_timestamps=True,
+                    verbose=False,
+                    fp16=False,
+                )
+            else:
+                result = self.model.transcribe(
+                    audio_path,
+                    word_timestamps=True,
+                    verbose=False,
+                    fp16=False,
+                )
             
             processing_time = time.time() - start_time
             logger.info(f"Transcription completed in {processing_time:.2f} seconds")

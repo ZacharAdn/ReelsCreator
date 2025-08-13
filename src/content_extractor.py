@@ -41,7 +41,7 @@ class ContentExtractor:
         
         logger.info("Content Extractor initialized")
     
-    def process_video_file(self, video_path: str, output_path: Optional[str] = None) -> ProcessingResult:
+    def process_video_file(self, video_path: str, output_path: Optional[str] = None, skip_evaluation: bool = False) -> ProcessingResult:
         """
         Complete processing pipeline for a video file
         
@@ -59,7 +59,7 @@ class ContentExtractor:
         try:
             # Step 1: Extract audio from video
             logger.info("Step 1: Extracting audio from video...")
-            audio_path = self.video_processor.process_video_file(video_path)
+            audio_path = self.video_processor.process_video_file(video_path, max_seconds=20)
             
             # Step 2: Transcribe audio
             logger.info("Step 2: Transcribing audio...")
@@ -79,16 +79,24 @@ class ContentExtractor:
             logger.info("Step 4: Generating embeddings...")
             segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(processed_segments)
             
-            # Step 5: Evaluate content
-            logger.info("Step 5: Evaluating content...")
-            evaluated_segments = self.evaluator.evaluate_segments(segments_with_embeddings)
-            
-            # Step 6: Filter high-value segments
-            logger.info("Step 6: Filtering high-value segments...")
-            high_value_segments = self.evaluator.filter_high_value_segments(
-                evaluated_segments, 
-                self.config.min_score_threshold
-            )
+            # Step 5: Evaluate content (optional)
+            if skip_evaluation:
+                logger.info("Step 5: Skipping evaluation (skip_evaluation=True)")
+                evaluated_segments = segments_with_embeddings
+                for seg in evaluated_segments:
+                    seg.value_score = 0.0
+                    seg.reasoning = "Evaluation skipped"
+                high_value_segments = []
+            else:
+                logger.info("Step 5: Evaluating content...")
+                evaluated_segments = self.evaluator.evaluate_segments(segments_with_embeddings)
+                
+                # Step 6: Filter high-value segments
+                logger.info("Step 6: Filtering high-value segments...")
+                high_value_segments = self.evaluator.filter_high_value_segments(
+                    evaluated_segments, 
+                    self.config.min_score_threshold
+                )
             
             # Calculate processing time and total duration
             processing_time = time.time() - start_time
