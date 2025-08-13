@@ -15,37 +15,55 @@ The system is built as a Python package containing several core modules that per
 - `torch`: ML processing infrastructure
 - `pandas`: Data management and export
 
-## Workflow
+## Current Workflow
 
-### 1. Audio Extraction and Transcription
-- Extract audio from video files (MP4, MOV, AVI, etc.)
-- Use Whisper for transcription with timestamps
-- Split into 45 second segments
-- Create 10 second overlaps between segments
-- Store metadata for each segment (start time, end time, text, confidence)
+### 1. Audio Extraction and Processing
+- Extract audio from video files using FFmpeg
+  - Supports: MP4, MOV, AVI, MKV
+  - Optional: Keep extracted audio file (`--keep-audio`)
+- Transcribe using OpenAI Whisper
+  - Model options: tiny/base/small/medium/large
+  - Normalized confidence scores (0-1 range)
+  - Timestamped output with word-level alignment
 
-### 2. Semantic Analysis
-- Generate embeddings for each segment using Sentence-Transformers
-  - Recommended model: `all-MiniLM-L6-v2`
-  - Potential upgrade to OpenAI embeddings later
-- Calculate similarity between segments to identify related topics and sections
+### 2. Segmentation and Analysis
+- Create overlapping segments
+  - Configurable duration (default: 45s, can be shorter)
+  - Smart overlap (default: 10s)
+  - Deduplication of repeated content
+  - Progress tracking for long operations
+- Generate semantic embeddings
+  - Using `all-MiniLM-L6-v2` by default
+  - Batched processing (32 segments/batch)
+  - Optional embedding export (`--include-embeddings`)
 
 ### 3. Content Evaluation
-- Use free open-source LLMs (GPT-OSS/QWEN) for content quality assessment
-- Evaluation parameters:
-  - Is there an insight or practical demonstration?
-  - Is the content clear and understandable?
-  - Is there significant educational value?
-- Score for each segment (0-1) with verbal explanation
-- No dependency on paid OpenAI API
+- Quality assessment using Qwen2.5-0.5B-Instruct
+  - Runs locally, no API costs
+  - GPU acceleration when available
+  - Deterministic scoring with `.eval()` mode
+  - Robust JSON parsing with fallbacks
+- Evaluation criteria:
+  - Educational value
+  - Clarity and understandability
+  - Practical demonstration
+  - Short-form content potential
 
-### 4. Results Export
-- Export to JSON including:
-  - Segment metadata
-  - Quality scores and evaluations
-  - Precise timestamps
-  - Transcribed text
-  - Embeddings (optional)
+### 4. Export Options
+- JSON output (configurable):
+  - Full segment metadata
+  - Timestamps and transcriptions
+  - Quality scores and reasoning
+  - Optional embeddings inclusion
+- CSV export for analysis:
+  - Start/end times
+  - Text content
+  - Confidence scores
+  - Quality metrics
+- Console summary:
+  - Processing statistics
+  - Top segments preview
+  - Quality distribution
 
 ## Data Structure
 
@@ -62,17 +80,42 @@ class Segment:
     reasoning: Optional[str]
 ```
 
-## Tuning Parameters
-- Segment length (default: 45 seconds)
-- Overlap length (default: 10 seconds)
-- Minimum score threshold for segment retention (default: 0.7)
-- Whisper model size (tiny/base/small/medium/large)
+## Configuration Parameters
 
-## Phase 2 (Future)
-- Simple user interface
-- Additional format support
-- Parameter optimization
-- Integration with editing tools
+### Core Processing
+- `segment_duration`: Length of each segment (default: 45s)
+- `overlap_duration`: Overlap between segments (default: 10s)
+- `min_score_threshold`: Quality cutoff (default: 0.7)
+- `whisper_model`: Model size (tiny/base/small/medium/large)
+
+### Performance Options
+- `embedding_batch_size`: Batch size for embeddings (default: 32)
+- `keep_audio`: Retain extracted audio (default: false)
+- `include_embeddings_in_json`: Export embeddings (default: false)
+
+### Model Selection
+- `embedding_model`: Sentence transformer model (default: all-MiniLM-L6-v2)
+- Evaluator: Fixed to Qwen2.5-0.5B-Instruct (local inference)
+
+## Current Limitations & Future Work
+
+### Performance Issues
+- Segmentation process is slow for longer videos
+- Memory usage can spike with large batch sizes
+- No parallel processing for segment creation
+
+### Planned Improvements
+- Optimize segmentation algorithm
+- Add batch processing for multiple videos
+- Implement progress tracking for all steps
+- Add parallel processing where possible
+
+### Future Features
+- Web interface for easier usage
+- Real-time processing feedback
+- Integration with video editors
+- Automated segment selection
+- Multi-language support optimization
 
 ## Technical Notes
 1. Requires Python 3.8+

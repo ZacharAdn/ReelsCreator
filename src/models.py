@@ -51,6 +51,9 @@ class ProcessingConfig:
     min_score_threshold: float = 0.7
     whisper_model: str = "base"
     embedding_model: str = "all-MiniLM-L6-v2"
+    include_embeddings_in_json: bool = False
+    keep_audio: bool = False
+    embedding_batch_size: int = 32
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary"""
@@ -73,12 +76,18 @@ class ProcessingResult:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert result to dictionary"""
+        def _segment_public_dict(segment: Segment) -> Dict[str, Any]:
+            segment_dict = segment.to_dict()
+            if not self.config.include_embeddings_in_json:
+                segment_dict.pop("embedding", None)
+            return segment_dict
+
         return {
-            "segments": [seg.to_dict() for seg in self.segments],
+            "segments": [_segment_public_dict(seg) for seg in self.segments],
             "config": self.config.to_dict(),
             "processing_time": self.processing_time,
             "total_duration": self.total_duration,
-            "high_value_segments": [seg.to_dict() for seg in self.high_value_segments],
+            "high_value_segments": [_segment_public_dict(seg) for seg in self.high_value_segments],
             "summary": {
                 "total_segments": len(self.segments),
                 "high_value_count": len(self.high_value_segments),

@@ -6,6 +6,7 @@ import logging
 import time
 from typing import List, Optional
 from pathlib import Path
+from tqdm import tqdm
 
 from .models import Segment, ProcessingConfig, ProcessingResult
 from .video_processing import VideoProcessor
@@ -59,7 +60,10 @@ class ContentExtractor:
         try:
             # Step 1: Extract audio from video
             logger.info("Step 1: Extracting audio from video...")
-            audio_path = self.video_processor.process_video_file(video_path)
+            audio_path = self.video_processor.process_video_file(
+                video_path,
+                keep_audio=self.config.keep_audio,
+            )
             
             # Step 2: Transcribe audio
             logger.info("Step 2: Transcribing audio...")
@@ -77,7 +81,10 @@ class ContentExtractor:
             
             # Step 4: Generate embeddings
             logger.info("Step 4: Generating embeddings...")
-            segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(processed_segments)
+            segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(
+                processed_segments,
+                batch_size=self.config.embedding_batch_size,
+            )
             
             # Step 5: Evaluate content
             logger.info("Step 5: Evaluating content...")

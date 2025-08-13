@@ -6,6 +6,9 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
+from src.embeddings import EmbeddingGenerator
+from src.models import Segment
+
 class TestVideoProcessingAndTranscription:
     """Test video processing and transcription accuracy with various video samples"""
     
@@ -46,10 +49,11 @@ class TestContentEvaluation:
         pass
     
     @pytest.mark.parametrize("segment_length", [15, 30, 45, 60])
-    def test_segment_length_impact(self, segment_length):
+    def test_segment_length_impact(self, segment_length, mock_embedding_model):
         """Test how segment length affects evaluation"""
-        # This will be implemented with actual content samples
-        pass
+        # Placeholder smoke check: ensure EmbeddingGenerator can run on dummy text (model mocked)
+        eg = EmbeddingGenerator()
+        _ = eg.generate_embeddings(["dummy text"], batch_size=1)
 
 class TestPerformanceScaling:
     """Test performance scaling with different file sizes"""

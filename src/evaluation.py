@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ContentEvaluator:
     """Handles content evaluation using open-source LLM"""
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium"):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"):
         """
         Initialize content evaluator
         
@@ -33,12 +33,17 @@ class ContentEvaluator:
         if self.model is None:
             logger.info(f"Loading LLM model: {self.model_name}")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
-            
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                device_map="auto",
+            )
+
             # Add padding token if not present
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
-            
+
+            self.model.eval()
             logger.info("LLM model loaded successfully")
     
     def evaluate_segment(self, segment: Segment) -> Dict[str, Any]:
@@ -58,14 +63,17 @@ class ContentEvaluator:
         try:
             # Tokenize input
             inputs = self.tokenizer.encode(prompt, return_tensors="pt", max_length=512, truncation=True)
+            device = next(self.model.parameters()).device
+            inputs = inputs.to(device)
             
             # Generate response
             with torch.no_grad():
                 outputs = self.model.generate(
                     inputs,
-                    max_length=inputs.shape[1] + 100,
-                    temperature=0.7,
-                    do_sample=True,
+                    max_new_tokens=100,
+                    do_sample=False,
+                    temperature=0.1,
+                    top_p=0.9,
                     pad_token_id=self.tokenizer.eos_token_id
                 )
             
@@ -80,6 +88,14 @@ class ContentEvaluator:
                 result = json.loads(generated_text)
                 return result
             except json.JSONDecodeError:
+                # Attempt to extract a trailing JSON block
+                import re
+                match = re.search(r"\{[\s\S]*\}$", generated_text)
+                if match:
+                    try:
+                        return json.loads(match.group(0))
+                    except Exception:
+                        pass
                 # Fallback: extract score from text
                 return self._parse_text_response(generated_text)
                 
@@ -158,16 +174,21 @@ Example response:
         
         logger.info(f"Evaluating {len(segments)} segments")
         
-        for i, segment in enumerate(segments):
-            logger.info(f"Evaluating segment {i+1}/{len(segments)}")
+        # Add progress bar for segment evaluation
+        from tqdm import tqdm
+        progress_bar = tqdm(segments, desc="Evaluating segments", unit="segment")
+        
+        for i, segment in enumerate(progress_bar):
+            progress_bar.set_description(f"Evaluating segment {i+1}/{len(segments)}")
             
             evaluation = self.evaluate_segment(segment)
             
             segment.value_score = evaluation.get("score", 0.0)
             segment.reasoning = evaluation.get("reasoning", "")
             
-            logger.info(f"Segment {i+1} score: {segment.value_score:.2f}")
+            progress_bar.set_postfix(score=f"{segment.value_score:.2f}")
         
+        progress_bar.close()
         return segments
     
     def filter_high_value_segments(self, segments: List[Segment], threshold: float = 0.7) -> List[Segment]:

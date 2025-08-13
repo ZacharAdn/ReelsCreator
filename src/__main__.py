@@ -35,6 +35,10 @@ def main():
     parser.add_argument("--overlap-duration", type=int, default=10, help="Overlap duration in seconds")
     parser.add_argument("--min-score", type=float, default=0.7, help="Minimum score threshold")
     parser.add_argument("--whisper-model", default="base", help="Whisper model size")
+    parser.add_argument("--embedding-model", default="all-MiniLM-L6-v2", help="Sentence transformer model name")
+    parser.add_argument("--keep-audio", action="store_true", help="Keep the extracted audio file")
+    parser.add_argument("--include-embeddings", action="store_true", help="Include embeddings in JSON output")
+    parser.add_argument("--embedding-batch-size", type=int, default=32, help="Batch size for embedding generation")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     parser.add_argument("--export-csv", help="Export results to CSV file")
     
@@ -57,7 +61,11 @@ def main():
                 segment_duration=args.segment_duration,
                 overlap_duration=args.overlap_duration,
                 min_score_threshold=args.min_score,
-                whisper_model=args.whisper_model
+                whisper_model=args.whisper_model,
+                embedding_model=args.embedding_model,
+                include_embeddings_in_json=args.include_embeddings,
+                keep_audio=args.keep_audio,
+                embedding_batch_size=args.embedding_batch_size,
             )
         
         # Initialize extractor

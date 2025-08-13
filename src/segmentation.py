@@ -87,23 +87,32 @@ class SegmentProcessor:
         Returns:
             Combined text
         """
-        combined_parts = []
-        
+        combined_parts: List[str] = []
+        seen_texts: set[str] = set()
+
         for segment in segments:
             # Calculate overlap with window
             overlap_start = max(segment.start_time, start_time)
             overlap_end = min(segment.end_time, end_time)
-            
-            if overlap_end > overlap_start:
-                # Calculate what portion of the segment text to include
+
+            if overlap_end > overlap_start and segment.text:
                 segment_duration = segment.end_time - segment.start_time
                 overlap_duration = overlap_end - overlap_start
-                
+
                 if segment_duration > 0:
-                    # For simplicity, include the full text if there's significant overlap
-                    if overlap_duration / segment_duration > 0.5:
-                        combined_parts.append(segment.text)
-        
+                    include_full = (overlap_duration / segment_duration) > 0.5
+                    text_to_add = segment.text
+                    if not include_full and len(segment.text.split()) > 12:
+                        # Approximate partial inclusion: take a middle slice
+                        words = segment.text.split()
+                        start_idx = max(0, int(len(words) * 0.25))
+                        end_idx = min(len(words), int(len(words) * 0.75))
+                        text_to_add = " ".join(words[start_idx:end_idx])
+
+                    if text_to_add and text_to_add not in seen_texts:
+                        combined_parts.append(text_to_add)
+                        seen_texts.add(text_to_add)
+
         return " ".join(combined_parts).strip()
     
     def filter_segments_by_duration(self, segments: List[Segment], min_duration: float = 10.0) -> List[Segment]:

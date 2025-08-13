@@ -7,6 +7,7 @@ import tempfile
 import os
 from pathlib import Path
 from unittest.mock import Mock, patch
+import torch
 
 @pytest.fixture
 def temp_video_file():
@@ -74,10 +75,15 @@ def mock_llm_model():
         
         model = Mock()
         tokenizer = Mock()
-        tokenizer.encode.return_value = Mock()
+        # Return a tensor to mimic return_tensors='pt'
+        tokenizer.encode.return_value = torch.tensor([[1, 2, 3]])
+        # Decode returns a valid JSON string
         tokenizer.decode.return_value = '{"score": 0.8, "reasoning": "Good content"}'
         tokenizer.pad_token = None
         tokenizer.eos_token_id = 1
+        tokenizer.eos_token = '</s>'
+        # Model.generate returns a tensor shaped like token ids
+        model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
         
         mock_model.return_value = model
         mock_tokenizer.return_value = tokenizer

@@ -9,6 +9,7 @@ from pathlib import Path
 import time
 
 from .models import Segment
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +79,17 @@ class WhisperTranscriber:
         segments = []
         
         for segment_data in transcription_result.get("segments", []):
+            # Convert Whisper avg_logprob (typically negative) to a pseudo-confidence in [0,1]
+            raw_logprob = float(segment_data.get("avg_logprob", -2.0))
+            # Clamp to a sensible range to avoid exp underflow, then exponentiate
+            raw_logprob = max(-10.0, min(0.0, raw_logprob))
+            confidence_prob = math.exp(raw_logprob)
+
             segment = Segment(
                 start_time=segment_data["start"],
                 end_time=segment_data["end"],
                 text=segment_data["text"].strip(),
-                confidence=segment_data.get("avg_logprob", 0.0)
+                confidence=confidence_prob
             )
             segments.append(segment)
         

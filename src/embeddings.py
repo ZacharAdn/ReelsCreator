@@ -33,12 +33,13 @@ class EmbeddingGenerator:
             self.model = SentenceTransformer(self.model_name)
             logger.info("Embedding model loaded successfully")
     
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+    def generate_embeddings(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
         """
         Generate embeddings for a list of texts
         
         Args:
             texts: List of text strings
+            batch_size: Batch size for processing (to reduce memory usage)
             
         Returns:
             List of embedding vectors
@@ -48,10 +49,10 @@ class EmbeddingGenerator:
         if not texts:
             return []
         
-        logger.info(f"Generating embeddings for {len(texts)} texts")
+        logger.info(f"Generating embeddings for {len(texts)} texts with batch_size={batch_size}")
         
         try:
-            embeddings = self.model.encode(texts, convert_to_tensor=False)
+            embeddings = self.model.encode(texts, batch_size=batch_size, convert_to_tensor=False)
             
             # Convert to list of lists
             embedding_list = embeddings.tolist() if hasattr(embeddings, 'tolist') else embeddings
@@ -63,12 +64,13 @@ class EmbeddingGenerator:
             logger.error(f"Embedding generation failed: {e}")
             raise
     
-    def add_embeddings_to_segments(self, segments: List[Segment]) -> List[Segment]:
+    def add_embeddings_to_segments(self, segments: List[Segment], batch_size: int = 32) -> List[Segment]:
         """
         Add embeddings to segments
         
         Args:
             segments: List of segments
+            batch_size: Batch size for processing
             
         Returns:
             List of segments with embeddings added
@@ -80,7 +82,7 @@ class EmbeddingGenerator:
         texts = [segment.text for segment in segments]
         
         # Generate embeddings
-        embeddings = self.generate_embeddings(texts)
+        embeddings = self.generate_embeddings(texts, batch_size=batch_size)
         
         # Add embeddings to segments
         for segment, embedding in zip(segments, embeddings):
