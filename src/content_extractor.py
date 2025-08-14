@@ -14,6 +14,8 @@ from .transcription import WhisperTranscriber
 from .segmentation import SegmentProcessor
 from .embeddings import EmbeddingGenerator
 from .evaluation import ContentEvaluator
+from .speaker_analysis import SpeakerDiarizer
+from .language_processor import LanguageProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +34,26 @@ class ContentExtractor:
         
         # Initialize components
         self.video_processor = VideoProcessor()
-        self.transcriber = WhisperTranscriber(self.config.whisper_model)
+        self.transcriber = WhisperTranscriber(
+            self.config.whisper_model, 
+            self.config.primary_language
+        )
         self.segment_processor = SegmentProcessor(
             self.config.segment_duration,
             self.config.overlap_duration
         )
         self.embedding_generator = EmbeddingGenerator(self.config.embedding_model)
-        self.evaluator = ContentEvaluator()
+        self.evaluator = ContentEvaluator(
+            model_name=self.config.evaluation_model,
+            batch_size=self.config.evaluation_batch_size
+        )
+        
+        # Speaker and language processing
+        self.speaker_diarizer = SpeakerDiarizer(self.config.speaker_batch_size) if self.config.enable_speaker_detection else None
+        self.language_processor = LanguageProcessor(
+            self.config.primary_language, 
+            self.config.technical_language
+        ) if self.config.preserve_technical_terms else None
         
         logger.info("Content Extractor initialized")
     
@@ -58,48 +73,122 @@ class ContentExtractor:
         logger.info(f"Starting processing of: {video_path}")
         
         try:
+            # Progress tracking
+            total_steps = 8 if self.config.enable_speaker_detection else 6
+            progress_bar = tqdm(total=total_steps, desc="Processing video", unit="step")
+            
             # Step 1: Extract audio from video
+            progress_bar.set_description("Extracting audio from video")
             logger.info("Step 1: Extracting audio from video...")
             audio_path = self.video_processor.process_video_file(
                 video_path,
                 keep_audio=self.config.keep_audio,
             )
+            progress_bar.update(1)
             
-            # Step 2: Transcribe audio
-            logger.info("Step 2: Transcribing audio...")
+            # Step 2: Speaker diarization (if enabled)
+            speaker_analysis = None
+            if self.config.enable_speaker_detection and self.speaker_diarizer:
+                progress_bar.set_description("Analyzing speakers (this may take time)")
+                logger.info("Step 2: Analyzing speakers...")
+                speaker_analysis = self.speaker_diarizer.analyze_speakers(audio_path)
+                progress_bar.update(1)
+            
+            # Step 3: Transcribe audio
+            progress_bar.set_description("Transcribing audio (this may take several minutes)")
+            logger.info(f"Step {3 if speaker_analysis else 2}: Transcribing audio...")
             original_segments = self.transcriber.process_audio_file(audio_path)
+            progress_bar.update(1)
             
             if not original_segments:
                 raise ValueError("No segments extracted from video file")
             
-            # Step 3: Create overlapping segments
-            logger.info("Step 3: Creating overlapping segments...")
-            processed_segments = self.segment_processor.process_segments(original_segments)
+            # Step 4: Process segments (simplified approach)
+            progress_bar.set_description("Processing segments (simplified)")
+            logger.info(f"Step {4 if speaker_analysis else 3}: Processing segments (direct from Whisper)...")
+            
+            # Use direct Whisper segments without overlapping
+            # Filter by minimum duration (keep segments >= 2 seconds for natural speech)
+            min_duration = 2.0
+            processed_segments = [
+                seg for seg in original_segments 
+                if (seg.end_time - seg.start_time) >= min_duration
+            ]
+            
+            logger.info(f"🎯 Using {len(processed_segments)} segments directly from Whisper (filtered by {min_duration}s duration)")
+            progress_bar.update(1)
             
             if not processed_segments:
                 raise ValueError("No segments after processing")
             
-            # Step 4: Generate embeddings
-            logger.info("Step 4: Generating embeddings...")
-            segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(
-                processed_segments,
-                batch_size=self.config.embedding_batch_size,
-            )
+            # Step 5: Speaker filtering (if enabled)
+            if self.config.enable_speaker_detection and speaker_analysis and self.config.primary_speaker_only:
+                progress_bar.set_description("Filtering by primary speaker")
+                logger.info("Step 5: Filtering segments by primary speaker...")
+                processed_segments = self.speaker_diarizer.filter_segments_by_speaker(
+                    processed_segments, speaker_analysis, primary_only=True
+                )
+                progress_bar.update(1)
             
-            # Step 5: Evaluate content
-            logger.info("Step 5: Evaluating content...")
+            # Step 6: Language processing (if enabled)
+            if self.config.enable_technical_terms and self.config.preserve_technical_terms and self.language_processor:
+                progress_bar.set_description("Processing language and technical terms")
+                logger.info(f"Step {6 if speaker_analysis else 5}: Processing multilingual content...")
+                technical_term_count = 0
+                for segment in processed_segments:
+                    technical_terms = self.language_processor.extract_technical_terms(segment.text)
+                    if technical_terms:
+                        technical_term_count += len(technical_terms)
+                        if hasattr(segment, 'technical_terms'):
+                            segment.technical_terms = technical_terms
+                
+                logger.info(f"🎯 Found {technical_term_count} technical terms across {len(processed_segments)} segments")
+                progress_bar.update(1)
+            
+            # Step 7: Generate embeddings (if needed)
+            if self.config.enable_similarity_analysis or not self.config.minimal_mode:
+                progress_bar.set_description("Generating embeddings")
+                logger.info(f"Step {7 if speaker_analysis else 5}: Generating embeddings...")
+                segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(
+                    processed_segments,
+                    batch_size=self.config.embedding_batch_size,
+                )
+                progress_bar.update(1)
+            else:
+                logger.info("⚡ Skipping embedding generation (minimal mode)")
+                segments_with_embeddings = processed_segments
+                progress_bar.update(1)
+            
+            # Step 8: Evaluate content
+            progress_bar.set_description(f"Evaluating {len(segments_with_embeddings)} segments (this may take time)")
+            logger.info(f"Step {8 if speaker_analysis else 6}: Evaluating content...")
+            
+            # Enhanced evaluation with language context for Hebrew educational content
             evaluated_segments = self.evaluator.evaluate_segments(segments_with_embeddings)
+            progress_bar.update(1)
             
-            # Step 6: Filter high-value segments
-            logger.info("Step 6: Filtering high-value segments...")
+            # Final step: Filter high-value segments
+            progress_bar.set_description("Filtering high-value segments")
+            logger.info("Final step: Filtering high-value segments...")
             high_value_segments = self.evaluator.filter_high_value_segments(
                 evaluated_segments, 
                 self.config.min_score_threshold
             )
+            progress_bar.set_description("Processing complete!")
+            progress_bar.close()
             
             # Calculate processing time and total duration
             processing_time = time.time() - start_time
             total_duration = original_segments[-1].end_time if original_segments else 0
+            
+            # Log processing performance
+            if total_duration > 0:
+                realtime_factor = total_duration / processing_time
+                logger.info(f"✅ Processing completed in {processing_time:.2f}s")
+                logger.info(f"🎵 Audio duration: {total_duration:.1f}s")
+                logger.info(f"🚀 Processing speed: {realtime_factor:.1f}x realtime")
+            else:
+                logger.info(f"✅ Processing completed in {processing_time:.2f}s")
             
             # Create result
             result = ProcessingResult(
@@ -184,7 +273,7 @@ class ContentExtractor:
     
     def export_segments_to_csv(self, segments: List[Segment], output_path: str) -> None:
         """
-        Export segments to CSV file
+        Export segments to CSV file with improved time formatting
         
         Args:
             segments: List of segments to export
@@ -192,17 +281,25 @@ class ContentExtractor:
         """
         import pandas as pd
         
+        def format_time(seconds):
+            """Convert seconds to MM:SS format"""
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}:{secs:02d}"
+        
         data = []
         for i, segment in enumerate(segments):
             data.append({
                 "index": i,
-                "start_time": segment.start_time,
-                "end_time": segment.end_time,
-                "duration": segment.duration(),
+                "start_time": format_time(segment.start_time),
+                "end_time": format_time(segment.end_time), 
+                "start_seconds": segment.start_time,  # Keep raw seconds for reference
+                "end_seconds": segment.end_time,
+                "duration": f"{segment.duration():.1f}s",
                 "text": segment.text,
-                "confidence": segment.confidence,
-                "value_score": segment.value_score,
-                "reasoning": segment.reasoning
+                "confidence": f"{segment.confidence:.3f}",
+                "value_score": f"{segment.value_score:.2f}" if segment.value_score else "",
+                "reasoning": segment.reasoning or ""
             })
         
         df = pd.DataFrame(data)

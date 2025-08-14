@@ -1,9 +1,9 @@
 """
-Transcription module using Whisper
+Transcription module using Whisper with enhanced multilingual support
 """
 
 import logging
-import whisper
+import torch
 from typing import List, Dict, Any
 from pathlib import Path
 import time
@@ -11,22 +11,46 @@ import time
 from .models import Segment
 import math
 
+# Try whisper-timestamped first, fallback to openai-whisper
+try:
+    import whisper_timestamped as whisper
+    WHISPER_TIMESTAMPED = True
+    logger = logging.getLogger(__name__)
+    logger.info("Using whisper-timestamped for enhanced multilingual support")
+except ImportError:
+    import whisper
+    WHISPER_TIMESTAMPED = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Using standard openai-whisper (consider installing whisper-timestamped for better multilingual support)")
+
 logger = logging.getLogger(__name__)
 
 
 class WhisperTranscriber:
-    """Handles audio transcription using Whisper"""
+    """Handles audio transcription using Whisper with multilingual support"""
     
-    def __init__(self, model_name: str = "base"):
+    def __init__(self, model_name: str = "base", primary_language: str = "he"):
         """
         Initialize Whisper transcriber
         
         Args:
             model_name: Whisper model size (tiny, base, small, medium, large)
+            primary_language: Primary language for transcription
         """
         self.model_name = model_name
+        self.primary_language = primary_language
         self.model = None
-        logger.info(f"Initializing Whisper model: {model_name}")
+        self.device = self._setup_device()
+        logger.info(f"Initializing Whisper model: {model_name} for language: {primary_language}")
+    
+    def _setup_device(self) -> torch.device:
+        """Setup M1 Mac optimized device"""
+        if torch.backends.mps.is_available():
+            logger.info("Using M1 GPU (MPS) for transcription")
+            return torch.device("mps")
+        else:
+            logger.info("Using CPU for transcription")
+            return torch.device("cpu")
     
     def load_model(self):
         """Load Whisper model"""
@@ -37,7 +61,7 @@ class WhisperTranscriber:
     
     def transcribe(self, audio_path: str) -> Dict[str, Any]:
         """
-        Transcribe audio file
+        Transcribe audio file with multilingual support
         
         Args:
             audio_path: Path to audio file
@@ -51,11 +75,23 @@ class WhisperTranscriber:
         start_time = time.time()
         
         try:
-            result = self.model.transcribe(
-                audio_path,
-                word_timestamps=True,
-                verbose=True
-            )
+            if WHISPER_TIMESTAMPED:
+                # Enhanced multilingual transcription with whisper-timestamped
+                result = whisper.transcribe(
+                    self.model,
+                    audio_path,
+                    language=self.primary_language,
+                    verbose=True,
+                    detect_disfluencies=True  # Better for mixed languages
+                )
+            else:
+                # Standard transcription with openai-whisper
+                result = self.model.transcribe(
+                    audio_path,
+                    language=self.primary_language,
+                    word_timestamps=True,
+                    verbose=True
+                )
             
             processing_time = time.time() - start_time
             logger.info(f"Transcription completed in {processing_time:.2f} seconds")

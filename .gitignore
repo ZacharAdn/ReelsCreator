@@ -192,7 +192,25 @@ $RECYCLE.BIN/
 # Linux
 *~
 
-# Project specific
+# Project specific files
+# Virtual environments (all variations)
+venv/
+reels_extractor/
+reels_extractor_env/
+*_env/
+
+# Temporary setup files
+setup_environment.py
+requirements_basic.txt
+fixes/
+
+# Output and results
+results/
+output/
+*.json
+*.csv
+*_results*
+
 # Media files (videos, images, etc.)
 *.mp4
 *.avi
@@ -242,15 +260,10 @@ secrets.json
 api_keys.txt
 tokens.txt
 
-# Output directories
-output/
-results/
-downloads/
-uploads/
-
 # Cache directories
 .cache/
 cache/
+__pycache__/
 
 # Backup files
 *.bak
@@ -265,9 +278,14 @@ cache/
 *.gz
 *.bz2
 
-# Large data files
-*.csv
-*.json
-*.xml
-*.xlsx
-*.xls 
+# Model cache directories
+models/
+*.model
+*.pkl
+*.pickle
+
+# Whisper cache
+~/.cache/whisper/
+
+# Hugging Face cache
+~/.cache/huggingface/ 

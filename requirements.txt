@@ -18,6 +18,12 @@ ffmpeg-python>=0.2.0
 transformers>=4.30.0
 accelerate>=0.20.0
 
+# Speaker diarization and multilingual support
+pyannote.audio>=3.1.0
+whisper-timestamped>=1.14.0
+langdetect>=1.0.9
+spacy>=3.6.0
+
 # Testing dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0

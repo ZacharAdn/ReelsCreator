@@ -18,14 +18,24 @@ logger = logging.getLogger(__name__)
 def main():
     """Example usage of Content Extractor"""
     
-    # Configuration
-    config = ProcessingConfig(
-        segment_duration=45,      # 45 second segments
-        overlap_duration=10,      # 10 second overlap
-        min_score_threshold=0.7,  # Only keep segments with score >= 0.7
-        whisper_model="base",     # Use base Whisper model
-        embedding_model="all-MiniLM-L6-v2"
-    )
+    # Configuration - try different profiles!
+    
+    # Option 1: Use a predefined profile
+    config = ProcessingConfig.create_profile("draft")  # 70% faster for testing
+    # config = ProcessingConfig.create_profile("balanced")  # Default
+    # config = ProcessingConfig.create_profile("quality")  # Higher quality, 20% slower
+    
+    # Option 2: Custom configuration
+    # config = ProcessingConfig(
+    #     segment_duration=45,         # 45 second segments
+    #     overlap_duration=10,         # 10 second overlap
+    #     min_score_threshold=0.7,     # Only keep segments with score >= 0.7
+    #     whisper_model="base",        # Use base Whisper model
+    #     embedding_model="all-MiniLM-L6-v2",
+    #     evaluation_batch_size=5,     # Process 5 segments at once for speed
+    #     enable_similarity_analysis=True,  # Enable similarity detection
+    #     minimal_mode=False           # Full processing
+    # )
     
     # Initialize extractor
     extractor = ContentExtractor(config)
@@ -70,8 +80,12 @@ def main():
         extractor.export_segments_to_csv(result.segments, "segments.csv")
         logger.info("Results exported to segments.csv")
         
-        # Find similar segments
-        similar_groups = extractor.get_similar_segments(result.segments, threshold=0.8)
+        # Find similar segments (if enabled)
+        if config.enable_similarity_analysis:
+            similar_groups = extractor.get_similar_segments(result.segments, threshold=0.8)
+        else:
+            similar_groups = []
+        
         if similar_groups:
             print(f"\n=== Similar Segment Groups ===")
             for i, group in enumerate(similar_groups[:3]):

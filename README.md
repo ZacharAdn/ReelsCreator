@@ -1,21 +1,22 @@
-# TikTok Content Extractor 🎬
+# Reels Extractor 🎬
 
 A powerful Python-based system for automatically extracting high-value segments from long educational recordings and preparing them for short-form content creation (TikTok, Reels, Shorts, YouTube Shorts).
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Status: Active](https://img.shields.io/badge/Status-Active-green.svg)](https://github.com/yourusername/tiktok_agent)
+[![Status: Active Beta](https://img.shields.io/badge/Status-Active%20Beta-orange.svg)](#)
 
 ## 🎯 Overview
 
 This intelligent content extraction system helps creators efficiently process long educational recordings by:
 
-1. **🎤 Automatic Transcription** - Uses OpenAI Whisper for accurate timestamped transcription
-2. **✂️ Smart Segmentation** - Creates overlapping segments to capture complete thoughts
+1. **🎤 Multilingual Transcription** - Uses OpenAI Whisper with Hebrew/English support and M1 Mac optimization
+2. **✂️ Direct Segmentation** - Uses Whisper segments directly for optimal performance
 3. **🧠 Semantic Analysis** - Uses sentence-transformers for content similarity and clustering
-4. **⭐ AI Evaluation** - GPT-4 powered content quality assessment
-5. **📊 Multiple Output Formats** - JSON, CSV, and detailed summaries
-6. **⚡ Batch Processing** - Process multiple files efficiently
+4. **⭐ Local AI Evaluation** - Qwen2.5 LLM powered quality assessment (no API costs)
+5. **🌍 Technical Term Preservation** - Maintains Hebrew + English data science terminology
+6. **📊 Multiple Output Formats** - JSON, CSV, and detailed summaries
+7. **⚡ Batch Processing** - Process multiple files efficiently with GPU acceleration
 
 Perfect for data science tutorials, educational content, podcasts, and any long-form video that needs to be converted into engaging short-form content.
 
@@ -23,11 +24,14 @@ Perfect for data science tutorials, educational content, podcasts, and any long-
 
 ### Core Capabilities
 - **🎥 Multi-format Support**: MP4, MOV, AVI, MKV, and more
-- **🎯 Intelligent Segmentation**: 45s segments with 10s overlap for complete thoughts
+- **🎯 Direct Segmentation**: Uses Whisper segments for natural speech boundaries
+- **🌍 Multilingual Processing**: Hebrew primary language with English technical terms
+- **👥 Speaker Diarization**: Automatically identifies teacher vs student speech
 - **🔍 Semantic Analysis**: Find related content and cluster similar segments
-- **📈 Quality Scoring**: AI-powered evaluation of educational value
+- **📈 Local AI Evaluation**: Qwen2.5 LLM for content quality assessment
+- **🚀 M1 Mac Optimization**: GPU acceleration with MPS (Metal Performance Shaders)
 - **📁 Batch Processing**: Handle multiple files efficiently
-- **🔄 Configurable Parameters**: Customize segment length, overlap, and thresholds
+- **🔄 Configurable Parameters**: Customize models, thresholds, and processing options
 
 ### Output Formats
 - **JSON**: Complete results with metadata and embeddings
@@ -38,10 +42,11 @@ Perfect for data science tutorials, educational content, podcasts, and any long-
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.9 or higher (required for speaker diarization)
 - FFmpeg (for video processing)
 - GPU recommended for better performance
 - No paid API dependencies - uses free open-source models
+- M1 Mac optimized with MPS support
 
 ### 1. Clone and Setup
 ```bash
@@ -82,11 +87,26 @@ brew install ffmpeg
 # Basic usage
 python -m src path/to/your/video.mp4
 
+# Fast processing for testing (70% faster)
+python -m src path/to/your/video.mp4 --profile draft
+
+# High quality processing (20% slower)
+python -m src path/to/your/video.mp4 --profile quality
+
 # With custom output and CSV export
 python -m src path/to/your/video.mp4 -o results.json --export-csv segments.csv
 
-# With custom configuration
-python -m src path/to/your/video.mp4 --segment-duration 60 --overlap 15 --threshold 0.8
+# With performance optimizations
+python -m src path/to/your/video.mp4 --evaluation-batch-size 8 --minimal-mode
+
+# With custom evaluation model
+python -m src path/to/your/video.mp4 --evaluation-model "microsoft/Phi-3-mini-4k-instruct" --min-score 0.7
+
+# With similarity analysis enabled
+python -m src path/to/your/video.mp4 --enable-similarity
+
+# With speaker detection (teacher vs student)
+python -m src path/to/your/video.mp4 --enable-speaker-detection --primary-speaker-only
 ```
 
 #### Python API
@@ -94,13 +114,21 @@ python -m src path/to/your/video.mp4 --segment-duration 60 --overlap 15 --thresh
 from src.content_extractor import ContentExtractor
 from src.models import ProcessingConfig
 
-# Configure processing parameters
-config = ProcessingConfig(
-    segment_duration=45,      # Segment length in seconds
-    overlap_duration=10,      # Overlap between segments
-    min_score_threshold=0.7,  # Minimum quality score
-    whisper_model="base"      # Whisper model size
-)
+# Option 1: Use optimized profiles
+config = ProcessingConfig.create_profile("draft")     # 70% faster
+# config = ProcessingConfig.create_profile("balanced") # Default
+# config = ProcessingConfig.create_profile("quality")  # 20% slower
+
+# Option 2: Custom configuration with performance options
+# config = ProcessingConfig(
+#     segment_duration=45,         # Segment length in seconds
+#     overlap_duration=10,         # Overlap between segments
+#     min_score_threshold=0.7,     # Minimum quality score
+#     whisper_model="base",        # Whisper model size
+#     evaluation_batch_size=5,     # Batch LLM processing for speed
+#     enable_similarity_analysis=True,  # Enable similarity detection
+#     minimal_mode=False           # Skip non-essential processing
+# )
 
 # Initialize extractor
 extractor = ContentExtractor(config)
@@ -131,6 +159,19 @@ for segment in result.high_value_segments:
 | `min_score_threshold` | 0.7 | Minimum quality score (0-1) |
 | `whisper_model` | "base" | Whisper model size (tiny/base/small/medium/large) |
 | `embedding_model` | "all-MiniLM-L6-v2" | Sentence transformer model |
+| `evaluation_model` | "Qwen/Qwen2.5-0.5B-Instruct" | LLM model for content evaluation |
+
+### Performance Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `processing_profile` | "balanced" | Profile: draft (70% faster), balanced, quality (20% slower) |
+| `evaluation_batch_size` | 5 | Number of segments to evaluate in parallel |
+| `enable_similarity_analysis` | False | Enable similarity detection and clustering |
+| `minimal_mode` | False | Skip non-essential processing for maximum speed |
+| `enable_technical_terms` | True | Process technical terminology |
+| `enable_speaker_detection` | False | Enable teacher vs student speech detection |
+| `primary_speaker_only` | False | Keep only teacher's speech segments |
 
 ### Configuration File
 Create a `config.json` file for persistent settings:

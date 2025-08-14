@@ -18,6 +18,11 @@ class Segment:
     embedding: Optional[List[float]] = None
     value_score: Optional[float] = None
     reasoning: Optional[str] = None
+    # Speaker and language support
+    speaker_id: Optional[str] = None
+    speaker_confidence: Optional[float] = None
+    primary_language: Optional[str] = None
+    technical_terms: Optional[List[str]] = None
     
     def duration(self) -> float:
         """Calculate segment duration in seconds"""
@@ -54,6 +59,20 @@ class ProcessingConfig:
     include_embeddings_in_json: bool = False
     keep_audio: bool = False
     embedding_batch_size: int = 32
+    # Speaker and language processing
+    enable_speaker_detection: bool = False
+    primary_speaker_only: bool = False
+    speaker_batch_size: int = 8
+    preserve_technical_terms: bool = True
+    primary_language: str = "he"  # Hebrew
+    technical_language: str = "en"  # English for technical terms
+    # Performance optimization options
+    enable_similarity_analysis: bool = False  # Skip if not needed for speed
+    enable_technical_terms: bool = True       # Language specific processing
+    minimal_mode: bool = False               # Skip non-essential processing
+    evaluation_batch_size: int = 5           # LLM batch processing size
+    evaluation_model: str = "microsoft/Phi-3-mini-4k-instruct"  # LLM model for evaluation
+    processing_profile: str = "balanced"     # draft/balanced/quality
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary"""
@@ -63,6 +82,54 @@ class ProcessingConfig:
     def from_dict(cls, data: Dict[str, Any]) -> 'ProcessingConfig':
         """Create config from dictionary"""
         return cls(**data)
+    
+    @classmethod
+    def create_profile(cls, profile: str = "balanced") -> 'ProcessingConfig':
+        """
+        Create optimized processing profiles
+        
+        Args:
+            profile: Processing profile type
+                - "draft": Fast processing for testing (70% faster)
+                - "balanced": Default balanced processing
+                - "quality": High-quality processing (20% slower)
+        
+        Returns:
+            ProcessingConfig optimized for the profile
+        """
+        if profile == "draft":
+            return cls(
+                whisper_model="tiny",
+                min_score_threshold=0.6,
+                embedding_batch_size=64,
+                evaluation_batch_size=8,
+                enable_similarity_analysis=False,
+                enable_technical_terms=False,
+                minimal_mode=True,
+                processing_profile="draft"
+            )
+        elif profile == "quality":
+            return cls(
+                whisper_model="medium",
+                min_score_threshold=0.8,
+                embedding_batch_size=16,
+                evaluation_batch_size=3,
+                enable_similarity_analysis=True,
+                enable_technical_terms=True,
+                minimal_mode=False,
+                processing_profile="quality"
+            )
+        else:  # balanced
+            return cls(
+                whisper_model="base",
+                min_score_threshold=0.7,
+                embedding_batch_size=32,
+                evaluation_batch_size=5,
+                enable_similarity_analysis=False,
+                enable_technical_terms=True,
+                minimal_mode=False,
+                processing_profile="balanced"
+            )
 
 
 @dataclass

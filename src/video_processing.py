@@ -7,7 +7,7 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Optional
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class VideoProcessor:
                 raise ValueError(f"No audio track found in video: {video_path}")
             
             # Save audio
-            audio.write_audiofile(output_path, verbose=False, logger=None)
+            audio.write_audiofile(output_path)
             
             # Clean up
             video.close()

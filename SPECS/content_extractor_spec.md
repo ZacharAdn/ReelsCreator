@@ -26,12 +26,11 @@ The system is built as a Python package containing several core modules that per
   - Normalized confidence scores (0-1 range)
   - Timestamped output with word-level alignment
 
-### 2. Segmentation and Analysis
-- Create overlapping segments
-  - Configurable duration (default: 45s, can be shorter)
-  - Smart overlap (default: 10s)
-  - Deduplication of repeated content
-  - Progress tracking for long operations
+### 2. Language Processing and Analysis
+- Direct segment usage from Whisper
+  - Configurable model size (tiny/base/small/medium/large)
+  - Language-aware processing (Hebrew + English)
+  - Technical term preservation
 - Generate semantic embeddings
   - Using `all-MiniLM-L6-v2` by default
   - Batched processing (32 segments/batch)
@@ -83,32 +82,70 @@ class Segment:
 ## Configuration Parameters
 
 ### Core Processing
-- `segment_duration`: Length of each segment (default: 45s)
-- `overlap_duration`: Overlap between segments (default: 10s)
 - `min_score_threshold`: Quality cutoff (default: 0.7)
 - `whisper_model`: Model size (tiny/base/small/medium/large)
+- `primary_language`: Primary content language (default: "he")
+- `preserve_technical_terms`: Keep English technical terms (default: true)
+
+### Performance Profiles
+- **Draft Mode** (70% faster):
+  ```python
+  config = ProcessingConfig.create_profile("draft")
+  # Uses: tiny whisper model, minimal processing
+  ```
+- **Balanced Mode** (default):
+  ```python
+  config = ProcessingConfig.create_profile("balanced")
+  # Uses: base whisper model, standard features
+  ```
+- **Quality Mode** (20% slower):
+  ```python
+  config = ProcessingConfig.create_profile("quality")
+  # Uses: medium whisper model, all features
+  ```
 
 ### Performance Options
-- `embedding_batch_size`: Batch size for embeddings (default: 32)
+- `evaluation_batch_size`: LLM batch size (default: 5)
+- `embedding_batch_size`: Embedding batch size (default: 32)
+- `enable_similarity_analysis`: Enable similarity detection (default: false)
+- `minimal_mode`: Skip non-essential processing (default: false)
+- `enable_technical_terms`: Process technical terms (default: true)
 - `keep_audio`: Retain extracted audio (default: false)
 - `include_embeddings_in_json`: Export embeddings (default: false)
 
 ### Model Selection
 - `embedding_model`: Sentence transformer model (default: all-MiniLM-L6-v2)
-- Evaluator: Fixed to Qwen2.5-0.5B-Instruct (local inference)
+- `whisper_model`: Transcription model (tiny/base/small/medium/large)
+- `evaluation_model`: LLM model for content evaluation:
+  - Default: "Qwen/Qwen2.5-0.5B-Instruct" (fast)
+  - Quality: "microsoft/Phi-3-mini-4k-instruct" (better but slower)
+  - Alternative: "microsoft/DialoGPT-small" (balanced)
 
 ## Current Limitations & Future Work
 
-### Performance Issues
-- Segmentation process is slow for longer videos
-- Memory usage can spike with large batch sizes
-- No parallel processing for segment creation
+### Current Focus (v1)
+- Optimized processing profiles (draft/balanced/quality)
+- Batch LLM evaluation (5-8 segments at once)
+- Memory-efficient processing options
+- Performance monitoring and metrics
 
-### Planned Improvements
-- Optimize segmentation algorithm
-- Add batch processing for multiple videos
-- Implement progress tracking for all steps
-- Add parallel processing where possible
+### Future Enhancements (v2+)
+- Advanced segmentation with overlapping
+- Speaker diarization integration
+- Complex language mixing analysis
+- Full parallel processing capabilities
+
+### Performance Roadmap
+- **Phase 1** ✅ (Current):
+  - LLM batch processing
+  - Processing profiles
+  - Optional features
+  - Memory optimization
+- **Phase 2** (Planned):
+  - Full parallel processing
+  - GPU memory optimization
+  - Caching layer
+  - Real-time feedback
 
 ### Future Features
 - Web interface for easier usage

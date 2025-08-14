@@ -36,11 +36,27 @@ def main():
     parser.add_argument("--min-score", type=float, default=0.7, help="Minimum score threshold")
     parser.add_argument("--whisper-model", default="base", help="Whisper model size")
     parser.add_argument("--embedding-model", default="all-MiniLM-L6-v2", help="Sentence transformer model name")
+    parser.add_argument("--evaluation-model", default="Qwen/Qwen2.5-0.5B-Instruct", help="LLM model for content evaluation")
     parser.add_argument("--keep-audio", action="store_true", help="Keep the extracted audio file")
     parser.add_argument("--include-embeddings", action="store_true", help="Include embeddings in JSON output")
     parser.add_argument("--embedding-batch-size", type=int, default=32, help="Batch size for embedding generation")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
     parser.add_argument("--export-csv", help="Export results to CSV file")
+    
+    # Speaker and language processing
+    parser.add_argument("--enable-speaker-detection", action="store_true", help="Enable speaker diarization")
+    parser.add_argument("--primary-speaker-only", action="store_true", help="Keep only primary speaker segments")
+    parser.add_argument("--speaker-batch-size", type=int, default=8, help="Batch size for speaker processing")
+    parser.add_argument("--preserve-technical-terms", action="store_true", default=True, help="Preserve technical terminology")
+    parser.add_argument("--primary-language", default="he", help="Primary language (he/en)")
+    parser.add_argument("--technical-language", default="en", help="Technical terms language")
+    
+    # Performance optimization options
+    parser.add_argument("--profile", choices=["draft", "balanced", "quality"], default="balanced",
+                       help="Processing profile: draft (70%% faster), balanced (default), quality (20%% slower)")
+    parser.add_argument("--evaluation-batch-size", type=int, default=5, help="LLM evaluation batch size")
+    parser.add_argument("--enable-similarity", action="store_true", help="Enable similarity analysis")
+    parser.add_argument("--minimal-mode", action="store_true", help="Skip non-essential processing for speed")
     
     args = parser.parse_args()
     
@@ -56,6 +72,22 @@ def main():
             with open(args.config, 'r') as f:
                 config_data = json.load(f)
                 config = ProcessingConfig.from_dict(config_data)
+        elif args.profile != "balanced":
+            # Use optimized profile
+            config = ProcessingConfig.create_profile(args.profile)
+            # Override with any explicit arguments
+            if args.segment_duration != 45:
+                config.segment_duration = args.segment_duration
+            if args.overlap_duration != 10:
+                config.overlap_duration = args.overlap_duration
+            if args.min_score != 0.7:
+                config.min_score_threshold = args.min_score
+            if args.whisper_model != "base":
+                config.whisper_model = args.whisper_model
+            if args.embedding_model != "all-MiniLM-L6-v2":
+                config.embedding_model = args.embedding_model
+            if args.evaluation_model != "Qwen/Qwen2.5-0.5B-Instruct":
+                config.evaluation_model = args.evaluation_model
         else:
             config = ProcessingConfig(
                 segment_duration=args.segment_duration,
@@ -63,9 +95,22 @@ def main():
                 min_score_threshold=args.min_score,
                 whisper_model=args.whisper_model,
                 embedding_model=args.embedding_model,
+                evaluation_model=args.evaluation_model,
                 include_embeddings_in_json=args.include_embeddings,
                 keep_audio=args.keep_audio,
                 embedding_batch_size=args.embedding_batch_size,
+                # Speaker and language processing
+                enable_speaker_detection=args.enable_speaker_detection,
+                primary_speaker_only=args.primary_speaker_only,
+                speaker_batch_size=args.speaker_batch_size,
+                preserve_technical_terms=args.preserve_technical_terms,
+                primary_language=args.primary_language,
+                technical_language=args.technical_language,
+                # Performance optimization options
+                evaluation_batch_size=args.evaluation_batch_size,
+                enable_similarity_analysis=args.enable_similarity,
+                minimal_mode=args.minimal_mode,
+                processing_profile=args.profile,
             )
         
         # Initialize extractor
