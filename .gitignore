@@ -1,3 +1,4 @@
+.*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -204,12 +205,6 @@ setup_environment.py
 requirements_basic.txt
 fixes/
 
-# Output and results
-results/
-output/
-*.json
-*.csv
-*_results*
 
 # Media files (videos, images, etc.)
 *.mp4

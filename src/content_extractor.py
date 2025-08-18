@@ -108,20 +108,18 @@ class ContentExtractor:
             if not original_segments:
                 raise ValueError("No segments extracted from video file")
             
-            # Step 4: Process segments (simplified approach)
-            progress_bar.set_description("Processing segments (simplified)")
-            logger.info(f"Step {4 if speaker_analysis else 3}: Processing segments (direct from Whisper)...")
+            # Step 4: Process segments (create proper Reels-length segments)
+            progress_bar.set_description("Creating overlapping segments for Reels")
+            logger.info(f"Step {4 if speaker_analysis else 3}: Creating overlapping segments for Reels content...")
             
-            # Use direct Whisper segments without overlapping
-            # Filter by minimum duration (keep segments >= 2 seconds for natural speech)
+            # Use proper segmentation for Reels (15-45s segments)
             step_start = time.time()
-            min_duration = 2.0
-            processed_segments = [
-                seg for seg in original_segments 
-                if (seg.end_time - seg.start_time) >= min_duration
-            ]
+            processed_segments = self.segment_processor.process_segments(
+                original_segments, 
+                min_duration=15.0  # Minimum 15 seconds for Reels
+            )
             
-            logger.info(f"🎯 Using {len(processed_segments)} segments directly from Whisper (filtered by {min_duration}s duration)")
+            logger.info(f"🎯 Created {len(processed_segments)} Reels-ready segments (15-45s duration)")
             step_times['segmentation'] = time.time() - step_start
             progress_bar.update(1)
             
@@ -214,14 +212,20 @@ class ContentExtractor:
                     percentage = (step_time / processing_time) * 100
                     logger.info(f"   {step_name}: {step_time:.2f}s ({percentage:.1f}%)")
                 
-                # Identify bottlenecks
+                # Identify bottlenecks (only if there are meaningful step times)
                 if step_times:
-                    bottleneck_step = max(step_times.items(), key=lambda x: x[1])
-                    logger.info(f"🔍 Main bottleneck: {bottleneck_step[0]} ({bottleneck_step[1]:.2f}s)")
+                    # Find the actual bottleneck (excluding steps with 0 time)
+                    meaningful_steps = [(name, time) for name, time in step_times.items() if time > 0.1]
                     
-                    # Performance recommendations
-                    if bottleneck_step[1] > processing_time * 0.4:  # More than 40% of total time
-                        self._log_performance_recommendations(bottleneck_step[0], self.config)
+                    if meaningful_steps:
+                        bottleneck_step = max(meaningful_steps, key=lambda x: x[1])
+                        logger.info(f"🔍 Main bottleneck: {bottleneck_step[0]} ({bottleneck_step[1]:.2f}s)")
+                        
+                        # Performance recommendations
+                        if bottleneck_step[1] > processing_time * 0.4:  # More than 40% of total time
+                            self._log_performance_recommendations(bottleneck_step[0], self.config)
+                    else:
+                        logger.info("⚡ All processing steps completed very quickly - no significant bottlenecks")
             else:
                 logger.info(f"✅ Processing completed in {processing_time:.2f}s")
             
@@ -366,8 +370,6 @@ class ContentExtractor:
                 "index": i,
                 "start_time": format_time(segment.start_time),
                 "end_time": format_time(segment.end_time), 
-                "start_seconds": segment.start_time,  # Keep raw seconds for reference
-                "end_seconds": segment.end_time,
                 "duration": f"{segment.duration():.1f}s",
                 "text": segment.text,
                 "confidence": f"{segment.confidence:.3f}",

@@ -1,0 +1,58 @@
+index,start_time,end_time,duration,text,confidence,value_score,reasoning
+0,30.08,35.08,5.0,"‫חשזה רבה שעושה להכלה, ‫והבר שדעות שהוא סביב היתו.",0.5128566950487892,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and easy to understand, providing a practical example of using pandas.""
+}
+``` The provided content appears to be in Hebrew, which could make it challenging for English speakers to fully grasp its meaning. However, if we consider the content's potential educational value, it seems to offer an interesting analogy that might help students visualize how data can be organized and analyzed. This type of visual representation could be"
+1,35.54,41.42,5.880000000000003,"‫היה, פרון הזה את הסרסופות וקטוס, ‫הקטוריות שמיכות זה דבר הזה,",0.5128566950487892,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and easy to understand, providing a practical example of using pandas.""
+}
+``` The provided educational content segment appears to be informative and engaging, offering a practical application of pandas in data manipulation. It clearly explains how to use pandas to manipulate data frames, which is a fundamental concept in data analysis. The content is straightforward and does not require extensive knowledge of programming languages like Python, making it suitable"
+2,70.7,76.02,5.319999999999993,"‫והסבייהם זה לא, ‫סתרשנים לסיבוג, סופות לכל משים, ‫לא הלריקסיה,",0.5267345225600112,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and easy to understand, providing practical insights into pandas.""
+}
+``` The provided educational content segment appears to be informative and engaging, offering a concise yet comprehensive overview of pandas. It clearly explains key concepts such as data manipulation, filtering, and visualization within the context of pandas' capabilities. This makes it an effective short-form social media content that effectively communicates educational value. Therefore, I would rate"
+3,83.67,90.96,7.289999999999992,"‫באה לא גיסטי גגשם, ‫באהסבייהם כל פעם רוצה את העושי ‫החיקה לא בספות וקטוס,",0.45055405286863986,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and easy to understand, providing practical examples of using pandas.""
+}
+``` The provided educational content segment appears to be informative and engaging, offering a practical example of using pandas in Python. It clearly explains how to use pandas to manipulate data frames, which is a fundamental concept in data analysis and machine learning. The content is straightforward and does not require extensive knowledge of programming beyond basic understanding of Python"
+4,105.1,110.6,5.5,"‫זה משפיע, ‫על הידע והאי, ‫אי, זה משפיעה את איני אחד,",0.6058416218534252,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear, easy to understand, and has educational value.""
+}
+``` The provided content appears to be an informal statement that conveys a message about how certain actions can affect knowledge and intelligence. It's not a formal educational piece but rather a casual expression of opinion. Here are the details:
+
+- **Is there a clear insight or practical demonstration?**
+  - Yes, it provides a simple yet"
+5,120.5,149.18,28.680000000000007,"‫אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, א",0.8587441589261753,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and understandable, providing a practical example of using pandas.""
+}
+``` The provided educational content appears to be informative and practical in nature. It provides a clear explanation of how to use Python's pandas library to manipulate data frames. This content would likely be well-suited for short-form social media due to its brevity and directness. However, it may not have the same level of"
+6,153.62,179.18,25.560000000000002,"אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי",0.9612575007999512,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and understandable, providing a concise overview of pandas.""
+}
+``` The provided content appears to be a simple summary of pandas' capabilities in a single line. It does not contain any clear insights or practical demonstrations, nor does it have significant educational value. Therefore, I would rate this content as having an average score of 0.9 out of 1.0. However, if we"
+7,179.2,209.18,29.980000000000018,"אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי",0.9596681598636606,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and understandable, providing a concise overview of pandas.""
+}
+``` The provided content appears to be a simple summary of pandas' capabilities in a single line. It does not contain any clear insights or practical demonstrations, nor does it have significant educational value. Therefore, I would rate this content as having an average score of 0.9 out of 1.0. However, if we"
+8,209.2,239.18,29.980000000000018,"אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי, אי",0.966087659866453,0.9,"```json
+{
+  ""score"": 0.9,
+  ""reasoning"": ""The content is clear and understandable, providing a concise overview of pandas.""
+}
+``` The provided content appears to be a simple summary of pandas' capabilities in a single line. It does not contain any clear insights or practical demonstrations, nor does it have significant educational value. Therefore, I would rate this content as having an average score of 0.9 out of 1.0. However, if we"
