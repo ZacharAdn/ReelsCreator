@@ -45,7 +45,9 @@ class ContentExtractor:
         self.embedding_generator = EmbeddingGenerator(self.config.embedding_model)
         self.evaluator = ContentEvaluator(
             model_name=self.config.evaluation_model,
-            batch_size=self.config.evaluation_batch_size
+            batch_size=self.config.evaluation_batch_size,
+            use_rule_based=self.config.use_rule_based_scoring,
+            enable_evaluation=self.config.enable_content_evaluation
         )
         
         # Speaker and language processing
@@ -73,6 +75,9 @@ class ContentExtractor:
         logger.info(f"Starting processing of: {video_path}")
         
         try:
+            # Performance monitoring
+            step_times = {}
+            
             # Progress tracking
             total_steps = 8 if self.config.enable_speaker_detection else 6
             progress_bar = tqdm(total=total_steps, desc="Processing video", unit="step")
@@ -109,6 +114,7 @@ class ContentExtractor:
             
             # Use direct Whisper segments without overlapping
             # Filter by minimum duration (keep segments >= 2 seconds for natural speech)
+            step_start = time.time()
             min_duration = 2.0
             processed_segments = [
                 seg for seg in original_segments 
@@ -116,6 +122,7 @@ class ContentExtractor:
             ]
             
             logger.info(f"🎯 Using {len(processed_segments)} segments directly from Whisper (filtered by {min_duration}s duration)")
+            step_times['segmentation'] = time.time() - step_start
             progress_bar.update(1)
             
             if not processed_segments:
@@ -123,15 +130,20 @@ class ContentExtractor:
             
             # Step 5: Speaker filtering (if enabled)
             if self.config.enable_speaker_detection and speaker_analysis and self.config.primary_speaker_only:
+                step_start = time.time()
                 progress_bar.set_description("Filtering by primary speaker")
                 logger.info("Step 5: Filtering segments by primary speaker...")
                 processed_segments = self.speaker_diarizer.filter_segments_by_speaker(
                     processed_segments, speaker_analysis, primary_only=True
                 )
+                step_times['speaker_filtering'] = time.time() - step_start
                 progress_bar.update(1)
+            else:
+                step_times['speaker_filtering'] = 0.0
             
             # Step 6: Language processing (if enabled)
             if self.config.enable_technical_terms and self.config.preserve_technical_terms and self.language_processor:
+                step_start = time.time()
                 progress_bar.set_description("Processing language and technical terms")
                 logger.info(f"Step {6 if speaker_analysis else 5}: Processing multilingual content...")
                 technical_term_count = 0
@@ -143,28 +155,36 @@ class ContentExtractor:
                             segment.technical_terms = technical_terms
                 
                 logger.info(f"🎯 Found {technical_term_count} technical terms across {len(processed_segments)} segments")
+                step_times['language_processing'] = time.time() - step_start
                 progress_bar.update(1)
+            else:
+                step_times['language_processing'] = 0.0
             
             # Step 7: Generate embeddings (if needed)
             if self.config.enable_similarity_analysis or not self.config.minimal_mode:
+                step_start = time.time()
                 progress_bar.set_description("Generating embeddings")
                 logger.info(f"Step {7 if speaker_analysis else 5}: Generating embeddings...")
                 segments_with_embeddings = self.embedding_generator.add_embeddings_to_segments(
                     processed_segments,
                     batch_size=self.config.embedding_batch_size,
                 )
+                step_times['embeddings'] = time.time() - step_start
                 progress_bar.update(1)
             else:
+                step_times['embeddings'] = 0.0
                 logger.info("⚡ Skipping embedding generation (minimal mode)")
                 segments_with_embeddings = processed_segments
                 progress_bar.update(1)
             
             # Step 8: Evaluate content
+            step_start = time.time()
             progress_bar.set_description(f"Evaluating {len(segments_with_embeddings)} segments (this may take time)")
             logger.info(f"Step {8 if speaker_analysis else 6}: Evaluating content...")
             
             # Enhanced evaluation with language context for Hebrew educational content
             evaluated_segments = self.evaluator.evaluate_segments(segments_with_embeddings)
+            step_times['evaluation'] = time.time() - step_start
             progress_bar.update(1)
             
             # Final step: Filter high-value segments
@@ -181,12 +201,27 @@ class ContentExtractor:
             processing_time = time.time() - start_time
             total_duration = original_segments[-1].end_time if original_segments else 0
             
-            # Log processing performance
+            # Log detailed performance metrics
             if total_duration > 0:
                 realtime_factor = total_duration / processing_time
                 logger.info(f"✅ Processing completed in {processing_time:.2f}s")
                 logger.info(f"🎵 Audio duration: {total_duration:.1f}s")
                 logger.info(f"🚀 Processing speed: {realtime_factor:.1f}x realtime")
+                
+                # Log step-by-step performance
+                logger.info("📊 Step-by-step performance:")
+                for step_name, step_time in step_times.items():
+                    percentage = (step_time / processing_time) * 100
+                    logger.info(f"   {step_name}: {step_time:.2f}s ({percentage:.1f}%)")
+                
+                # Identify bottlenecks
+                if step_times:
+                    bottleneck_step = max(step_times.items(), key=lambda x: x[1])
+                    logger.info(f"🔍 Main bottleneck: {bottleneck_step[0]} ({bottleneck_step[1]:.2f}s)")
+                    
+                    # Performance recommendations
+                    if bottleneck_step[1] > processing_time * 0.4:  # More than 40% of total time
+                        self._log_performance_recommendations(bottleneck_step[0], self.config)
             else:
                 logger.info(f"✅ Processing completed in {processing_time:.2f}s")
             
@@ -210,6 +245,11 @@ class ContentExtractor:
             logger.info(f"Total segments: {summary['total_segments']}")
             logger.info(f"High-value segments: {summary['high_value_count']}")
             logger.info(f"Average score: {summary['average_score']:.2f}")
+            
+            # Add performance metrics to result
+            if hasattr(result, '__dict__'):
+                result.step_times = step_times
+                result.bottleneck = max(step_times.items(), key=lambda x: x[1])[0] if step_times else None
             
             return result
             
@@ -245,6 +285,39 @@ class ContentExtractor:
                 continue
         
         return results
+    
+    def _log_performance_recommendations(self, bottleneck_step: str, config) -> None:
+        """
+        Log performance optimization recommendations based on bottleneck
+        
+        Args:
+            bottleneck_step: Name of the bottleneck step
+            config: Processing configuration
+        """
+        logger.info("💡 Performance optimization recommendations:")
+        
+        if bottleneck_step == 'transcription':
+            if config.whisper_model != 'tiny':
+                logger.info("   - Use --profile draft for 80% faster processing")
+                logger.info("   - Try smaller Whisper model: --whisper-model tiny")
+            logger.info("   - Ensure GPU acceleration is working (MPS/CUDA)")
+            
+        elif bottleneck_step == 'evaluation':
+            if config.enable_content_evaluation:
+                logger.info("   - Use --profile fast for rule-based evaluation")
+                logger.info("   - Use --profile draft to disable LLM evaluation entirely")
+                logger.info(f"   - Increase evaluation batch size: --evaluation-batch-size {config.evaluation_batch_size * 2}")
+            
+        elif bottleneck_step == 'speaker_analysis':
+            logger.info("   - Disable speaker detection for speed: remove --enable-speaker-detection")
+            logger.info("   - Use frequency-only analysis in draft mode")
+            
+        elif bottleneck_step == 'embeddings':
+            logger.info("   - Use --minimal-mode to skip embeddings")
+            logger.info("   - Disable similarity analysis: remove --enable-similarity")
+            logger.info(f"   - Increase embedding batch size: --embedding-batch-size {config.embedding_batch_size * 2}")
+        
+        logger.info("   - For maximum speed: python -m src video.mp4 --profile draft")
     
     def get_similar_segments(self, segments: List[Segment], threshold: float = 0.7) -> List[List[int]]:
         """

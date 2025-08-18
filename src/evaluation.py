@@ -7,6 +7,7 @@ import json
 from typing import List, Dict, Any, Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import re
 
 from .models import Segment
 
@@ -14,21 +15,32 @@ logger = logging.getLogger(__name__)
 
 
 class ContentEvaluator:
-    """Handles content evaluation using open-source LLM"""
+    """Handles content evaluation using open-source LLM or rule-based scoring"""
     
-    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct", batch_size: int = 5):
+    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct", batch_size: int = 5, 
+                 use_rule_based: bool = False, enable_evaluation: bool = True):
         """
         Initialize content evaluator
         
         Args:
             model_name: Open-source LLM model name
             batch_size: Number of segments to process in parallel
+            use_rule_based: Use rule-based scoring instead of LLM
+            enable_evaluation: Enable evaluation (False for draft mode)
         """
         self.model_name = model_name
         self.batch_size = batch_size
+        self.use_rule_based = use_rule_based
+        self.enable_evaluation = enable_evaluation
         self.tokenizer = None
         self.model = None
-        logger.info(f"Initializing open-source LLM: {model_name} with batch_size={batch_size}")
+        
+        if not enable_evaluation:
+            logger.info("Content evaluation disabled for maximum speed")
+        elif use_rule_based:
+            logger.info("Using rule-based scoring for fast evaluation")
+        else:
+            logger.info(f"Initializing open-source LLM: {model_name} with batch_size={batch_size}")
     
     def load_model(self):
         """Load open-source LLM model"""
@@ -273,7 +285,7 @@ Segments to evaluate:
     
     def evaluate_segments(self, segments: List[Segment]) -> List[Segment]:
         """
-        Evaluate multiple segments using batch processing for better performance
+        Evaluate multiple segments using batch processing, rule-based, or no evaluation
         
         Args:
             segments: List of segments to evaluate
@@ -284,7 +296,21 @@ Segments to evaluate:
         if not segments:
             return segments
         
-        logger.info(f"Evaluating {len(segments)} segments using batch processing (batch_size={self.batch_size})")
+        # Handle no evaluation mode (draft profile)
+        if not self.enable_evaluation:
+            logger.info(f"⚡ Skipping evaluation for {len(segments)} segments (evaluation disabled)")
+            for segment in segments:
+                segment.value_score = 0.75  # Default decent score
+                segment.reasoning = "Evaluation skipped for speed"
+            return segments
+        
+        # Handle rule-based evaluation (fast profile)
+        if self.use_rule_based:
+            logger.info(f"🚀 Using rule-based evaluation for {len(segments)} segments")
+            return self._evaluate_segments_rule_based(segments)
+        
+        # Handle LLM evaluation (balanced/quality profiles)
+        logger.info(f"🧠 Evaluating {len(segments)} segments using LLM batch processing (batch_size={self.batch_size})")
         
         # Process segments in batches
         from tqdm import tqdm
@@ -388,4 +414,108 @@ Segments to evaluate:
             "average_score": sum(scores) / len(scores),
             "score_distribution": score_ranges,
             "high_value_count": len([s for s in scores if s >= 0.7])
-        } 
+        }
+    
+    def _evaluate_segments_rule_based(self, segments: List[Segment]) -> List[Segment]:
+        """
+        Fast rule-based evaluation without LLM inference
+        
+        Args:
+            segments: List of segments to evaluate
+            
+        Returns:
+            List of segments with rule-based scores
+        """
+        from tqdm import tqdm
+        
+        for segment in tqdm(segments, desc="Rule-based evaluation", unit="segment"):
+            result = self._rule_based_score(segment)
+            segment.value_score = result["score"]
+            segment.reasoning = result["reasoning"]
+        
+        logger.info(f"✅ Completed rule-based evaluation of {len(segments)} segments")
+        return segments
+    
+    def _rule_based_score(self, segment: Segment) -> Dict[str, Any]:
+        """
+        Calculate rule-based score for a segment based on various heuristics
+        
+        Args:
+            segment: Segment to score
+            
+        Returns:
+            Dictionary with score and reasoning
+        """
+        text = segment.text.strip()
+        score = 0.5  # Base score
+        reasoning_parts = []
+        
+        # Length-based scoring (sweet spot for short-form content)
+        word_count = len(text.split())
+        if 10 <= word_count <= 50:  # Good length for short clips
+            score += 0.2
+            reasoning_parts.append("Good length for short-form")
+        elif word_count < 5:  # Too short
+            score -= 0.2
+            reasoning_parts.append("Too short")
+        elif word_count > 80:  # Too long
+            score -= 0.1
+            reasoning_parts.append("Might be too long")
+        
+        # Educational content indicators
+        educational_keywords = [
+            "example", "demonstrate", "show", "explain", "understand", "learn",
+            "concept", "important", "key", "remember", "notice", "see", "look"
+        ]
+        
+        technical_keywords = [
+            "function", "method", "variable", "data", "code", "programming",
+            "algorithm", "syntax", "error", "debug", "output", "input"
+        ]
+        
+        text_lower = text.lower()
+        
+        # Check for educational indicators
+        edu_matches = sum(1 for keyword in educational_keywords if keyword in text_lower)
+        tech_matches = sum(1 for keyword in technical_keywords if keyword in text_lower)
+        
+        if edu_matches >= 2:
+            score += 0.15
+            reasoning_parts.append("Strong educational content")
+        elif edu_matches >= 1:
+            score += 0.1
+            reasoning_parts.append("Educational content")
+        
+        if tech_matches >= 2:
+            score += 0.1
+            reasoning_parts.append("Technical content")
+        
+        # Question indicators (engagement)
+        if "?" in text or any(q in text_lower for q in ["what", "how", "why", "when", "where"]):
+            score += 0.1
+            reasoning_parts.append("Engaging questions")
+        
+        # Practical demonstration indicators
+        practical_keywords = ["result", "output", "works", "example", "demo", "practice"]
+        if any(keyword in text_lower for keyword in practical_keywords):
+            score += 0.1
+            reasoning_parts.append("Practical demonstration")
+        
+        # Confidence-based adjustment
+        if segment.confidence and segment.confidence < 0.7:
+            score -= 0.1
+            reasoning_parts.append("Low transcription confidence")
+        elif segment.confidence and segment.confidence > 0.9:
+            score += 0.05
+            reasoning_parts.append("High transcription confidence")
+        
+        # Clamp score to valid range
+        score = max(0.0, min(1.0, score))
+        
+        # Create reasoning
+        if reasoning_parts:
+            reasoning = "Rule-based: " + ", ".join(reasoning_parts)
+        else:
+            reasoning = "Rule-based: Standard content"
+        
+        return {"score": score, "reasoning": reasoning} 

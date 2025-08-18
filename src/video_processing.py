@@ -7,7 +7,7 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Optional
-from moviepy import VideoFileClip
+from moviepy.editor import VideoFileClip
 
 logger = logging.getLogger(__name__)
 

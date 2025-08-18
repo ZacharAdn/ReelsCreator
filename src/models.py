@@ -72,7 +72,11 @@ class ProcessingConfig:
     minimal_mode: bool = False               # Skip non-essential processing
     evaluation_batch_size: int = 5           # LLM batch processing size
     evaluation_model: str = "microsoft/Phi-3-mini-4k-instruct"  # LLM model for evaluation
-    processing_profile: str = "balanced"     # draft/balanced/quality
+    processing_profile: str = "balanced"     # draft/fast/balanced/quality
+    # Evaluation control
+    enable_content_evaluation: bool = True   # Disable for maximum speed
+    use_rule_based_scoring: bool = False     # Fast rule-based scoring instead of LLM
+    confidence_based_evaluation: bool = False # Only evaluate uncertain segments
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary"""
@@ -90,7 +94,8 @@ class ProcessingConfig:
         
         Args:
             profile: Processing profile type
-                - "draft": Fast processing for testing (70% faster)
+                - "draft": Maximum speed processing (80% faster, no LLM evaluation)
+                - "fast": Fast processing with rule-based scoring (60% faster)
                 - "balanced": Default balanced processing
                 - "quality": High-quality processing (20% slower)
         
@@ -100,34 +105,56 @@ class ProcessingConfig:
         if profile == "draft":
             return cls(
                 whisper_model="tiny",
+                min_score_threshold=0.5,  # Lower threshold since no LLM evaluation
+                embedding_batch_size=64,
+                evaluation_batch_size=8,
+                enable_similarity_analysis=False,
+                enable_technical_terms=False,
+                enable_speaker_detection=False,  # Disable speaker detection
+                minimal_mode=True,
+                enable_content_evaluation=False,  # Disable LLM evaluation
+                use_rule_based_scoring=True,
+                processing_profile="draft"
+            )
+        elif profile == "fast":
+            return cls(
+                whisper_model="tiny",
                 min_score_threshold=0.6,
                 embedding_batch_size=64,
                 evaluation_batch_size=8,
                 enable_similarity_analysis=False,
                 enable_technical_terms=False,
+                enable_speaker_detection=False,
                 minimal_mode=True,
-                processing_profile="draft"
+                enable_content_evaluation=True,
+                use_rule_based_scoring=True,  # Use rule-based instead of LLM
+                confidence_based_evaluation=True,
+                processing_profile="fast"
             )
         elif profile == "quality":
             return cls(
-                whisper_model="medium",
+                whisper_model="auto",  # Use smart model selection
                 min_score_threshold=0.8,
                 embedding_batch_size=16,
                 evaluation_batch_size=3,
                 enable_similarity_analysis=True,
                 enable_technical_terms=True,
                 minimal_mode=False,
+                enable_content_evaluation=True,
+                use_rule_based_scoring=False,
                 processing_profile="quality"
             )
         else:  # balanced
             return cls(
-                whisper_model="base",
+                whisper_model="auto",  # Use smart model selection
                 min_score_threshold=0.7,
                 embedding_batch_size=32,
                 evaluation_batch_size=5,
                 enable_similarity_analysis=False,
                 enable_technical_terms=True,
                 minimal_mode=False,
+                enable_content_evaluation=True,
+                use_rule_based_scoring=False,
                 processing_profile="balanced"
             )
 

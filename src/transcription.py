@@ -29,19 +29,24 @@ logger = logging.getLogger(__name__)
 class WhisperTranscriber:
     """Handles audio transcription using Whisper with multilingual support"""
     
-    def __init__(self, model_name: str = "base", primary_language: str = "he"):
+    def __init__(self, model_name: str = "base", primary_language: str = "he", smart_model_selection: bool = True):
         """
         Initialize Whisper transcriber
         
         Args:
-            model_name: Whisper model size (tiny, base, small, medium, large)
+            model_name: Whisper model size (tiny, base, small, medium, large, or "auto" for smart selection)
             primary_language: Primary language for transcription
+            smart_model_selection: Enable automatic model selection based on audio length
         """
         self.model_name = model_name
         self.primary_language = primary_language
+        self.smart_model_selection = smart_model_selection
         self.model = None
+        self.actual_model_used = None  # Track which model was actually used
         self.device = self._setup_device()
-        logger.info(f"Initializing Whisper model: {model_name} for language: {primary_language}")
+        logger.info(f"Initializing Whisper transcriber: {model_name} for language: {primary_language}")
+        if smart_model_selection and model_name == "auto":
+            logger.info("Smart model selection enabled - will choose optimal model based on audio duration")
     
     def _setup_device(self) -> torch.device:
         """Setup M1 Mac optimized device"""
@@ -132,9 +137,65 @@ class WhisperTranscriber:
         logger.info(f"Extracted {len(segments)} segments from transcription")
         return segments
     
+    def get_audio_duration(self, audio_path: str) -> float:
+        """
+        Get duration of audio file in seconds
+        
+        Args:
+            audio_path: Path to audio file
+            
+        Returns:
+            Duration in seconds
+        """
+        try:
+            import librosa
+            y, sr = librosa.load(audio_path, sr=None)
+            duration = len(y) / sr
+            return duration
+        except ImportError:
+            # Fallback using moviepy if librosa not available
+            try:
+                from moviepy.editor import AudioFileClip
+                with AudioFileClip(audio_path) as audio:
+                    return audio.duration
+            except ImportError:
+                logger.warning("Cannot determine audio duration - librosa and moviepy not available")
+                return 600.0  # Default to 10 minutes if we can't determine duration
+        except Exception as e:
+            logger.warning(f"Failed to get audio duration: {e}")
+            return 600.0  # Default fallback
+    
+    def select_optimal_model(self, audio_duration: float) -> str:
+        """
+        Select optimal Whisper model based on audio duration
+        
+        Args:
+            audio_duration: Duration of audio in seconds
+            
+        Returns:
+            Optimal model name
+        """
+        duration_minutes = audio_duration / 60.0
+        
+        if duration_minutes < 3:  # Very short videos
+            model = "tiny"
+            reason = f"short video ({duration_minutes:.1f}m) - prioritizing speed"
+        elif duration_minutes < 10:  # Short videos
+            model = "base"
+            reason = f"medium video ({duration_minutes:.1f}m) - balanced speed/accuracy"
+        elif duration_minutes < 30:  # Medium videos
+            model = "small"
+            reason = f"longer video ({duration_minutes:.1f}m) - prioritizing accuracy"
+        else:  # Long videos
+            model = "base"  # Use base for very long videos to avoid memory issues
+            reason = f"very long video ({duration_minutes:.1f}m) - balanced for memory efficiency"
+        
+        logger.info(f"🎯 Selected Whisper model '{model}' for {reason}")
+        return model
+    
     def process_audio_file(self, audio_path: str) -> List[Segment]:
         """
-        Complete audio processing pipeline
+        Complete audio processing pipeline with smart model selection
         
         Args:
             audio_path: Path to audio file
@@ -145,6 +206,22 @@ class WhisperTranscriber:
         # Validate file exists
         if not Path(audio_path).exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        
+        # Smart model selection if enabled
+        if self.smart_model_selection and (self.model_name == "auto" or self.model is None):
+            audio_duration = self.get_audio_duration(audio_path)
+            optimal_model = self.select_optimal_model(audio_duration)
+            
+            # Update model if different from current
+            if self.actual_model_used != optimal_model:
+                logger.info(f"Switching from {self.actual_model_used or 'None'} to {optimal_model} model")
+                self.actual_model_used = optimal_model
+                self.model = None  # Force reload with new model
+                # Temporarily update model_name for loading
+                original_model_name = self.model_name
+                self.model_name = optimal_model
+                self.load_model()
+                self.model_name = original_model_name  # Restore original
         
         # Transcribe
         result = self.transcribe(audio_path)

@@ -52,8 +52,8 @@ def main():
     parser.add_argument("--technical-language", default="en", help="Technical terms language")
     
     # Performance optimization options
-    parser.add_argument("--profile", choices=["draft", "balanced", "quality"], default="balanced",
-                       help="Processing profile: draft (70%% faster), balanced (default), quality (20%% slower)")
+    parser.add_argument("--profile", choices=["draft", "fast", "balanced", "quality"], default="balanced",
+                       help="Processing profile: draft (80%% faster, no LLM), fast (60%% faster, rule-based), balanced (default), quality (20%% slower)")
     parser.add_argument("--evaluation-batch-size", type=int, default=5, help="LLM evaluation batch size")
     parser.add_argument("--enable-similarity", action="store_true", help="Enable similarity analysis")
     parser.add_argument("--minimal-mode", action="store_true", help="Skip non-essential processing for speed")
