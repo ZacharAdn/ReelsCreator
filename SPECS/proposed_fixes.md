@@ -23,21 +23,22 @@
 This document proposes a prioritized set of improvements to the content extraction system. It starts with immediate, low-risk wins, proceeds to concrete code changes by module, and concludes with a pragmatic testing strategy to establish a safety net.
 
 ### Immediate Wins (low effort, high impact)
-**STATUS UPDATE (Current):**
+**STATUS UPDATE (August 2025):**
 - **Dependency alignment (Whisper)**: ✅ COMPLETED
   - Added `openai-whisper>=20231117` and commented out `whisper-timestamped` in `requirements.txt`.
 - **Confidence normalization**: ✅ COMPLETED  
-  - Implemented exponential mapping with clamping in `src/transcription.py`.
+  - Implemented exponential mapping with clamping in `src/stages/_02_transcription/code/transcription.py`.
 - **CLI parity with config**: ✅ COMPLETED
   - All flags implemented in `src/__main__.py`: `--embedding-model`, `--keep-audio`, `--include-embeddings`, `--embedding-batch-size`.
   - New config fields added in `src/models.py`.
-- **Evaluator robustness**: ✅ COMPLETED
+- **Evaluator robustness**: ⚠️ PARTIALLY COMPLETED (Quality Issues Remain)
   - Switched to `Qwen/Qwen2.5-0.5B-Instruct`, added device/dtype settings and `.eval()`, improved JSON parsing.
+  - **🚨 CRITICAL ISSUE**: All segments receive identical 0.75 scores - needs immediate fix
 - **Embeddings batching**: ✅ COMPLETED
-  - Added batch_size parameter to `generate_embeddings()` and `add_embeddings_to_segments()` in `src/embeddings.py`.
+  - Added batch_size parameter to `generate_embeddings()` and `add_embeddings_to_segments()` in `src/stages/_05_content_evaluation/code/embeddings.py`.
 - **Segmentation deduplication**: ✅ COMPLETED
-  - Implemented text deduplication and overlap logic in `src/segmentation.py`.
-- **README corrections**: ⏳ PENDING
+  - Implemented text deduplication and overlap logic in `src/stages/_03_content_segmentation/code/segmentation.py`.
+- **README corrections**: ⚠️ IN PROGRESS
   - Update repo name, paths, badges, and remove references to non-existent files.
 
 ### Detailed Code Changes
@@ -50,12 +51,12 @@ This document proposes a prioritized set of improvements to the content extracti
   - `transformers>=4.30.0`
   - `torch>=2.0.0`
 
-#### 2) Transcription confidence normalization (`src/transcription.py`) - ✅ COMPLETED
+#### 2) Transcription confidence normalization (`src/stages/_02_transcription/code/transcription.py`) - ✅ COMPLETED
 - ✅ Implemented exponential mapping with clamping
 - ✅ Code uses `math.exp(max(-10.0, min(0.0, raw_logprob)))` to convert to [0,1] range
 - ✅ Proper confidence calculation now in place in `extract_segments()` method
 
-#### 3) Evaluator stability and determinism (`src/evaluation.py`) - ✅ COMPLETED
+#### 3) Evaluator stability and determinism (`src/stages/_05_content_evaluation/code/evaluation.py`) - ⚠️ CRITICAL ISSUES REMAIN
 - ✅ Added configurable evaluation model:
   - Default: `Qwen/Qwen2.5-0.5B-Instruct` (fast)
   - Quality: `microsoft/Phi-3-mini-4k-instruct` (better)
@@ -65,13 +66,16 @@ This document proposes a prioritized set of improvements to the content extracti
 - ✅ Implemented robust JSON parsing with regex fallback
 - ✅ Added proper pad_token handling and generation parameters
 - ✅ Added `--evaluation-model` CLI parameter
+- **🚨 CRITICAL ISSUES**:
+  - All segments receive identical 0.75 quality scores (no variation)
+  - Quality profile hangs during LLM model loading (unusable in production)
 
-#### 4) Embeddings batching and index mapping (`src/embeddings.py`) - ✅ COMPLETED
+#### 4) Embeddings batching and index mapping (`src/stages/_05_content_evaluation/code/embeddings.py`) - ✅ COMPLETED
 - ✅ Added `batch_size` parameter to `generate_embeddings()` and `add_embeddings_to_segments()`
 - ✅ Configurable batch size (default 32) to reduce memory usage
 - ✅ Proper similarity grouping logic already in place
 
-#### 5) Segmentation quality (`src/segmentation.py`) - ✅ COMPLETED
+#### 5) Segmentation quality (`src/stages/_03_content_segmentation/code/segmentation.py`) - ✅ COMPLETED
 - ✅ Implemented text deduplication using `seen_texts` set
 - ✅ Added proportional inclusion logic based on overlap duration  
 - ✅ Smart partial text inclusion for segments with >50% overlap
@@ -131,12 +135,14 @@ This document proposes a prioritized set of improvements to the content extracti
 See detailed plan in [CLEANUP_AND_OPTIMIZATION_PLAN.md](CLEANUP_AND_OPTIMIZATION_PLAN.md#-task-3-quality-profile-performance-issues)
 
 ### Risk and Rollout  
-**CURRENT STATUS**: ✅ Performance improvements completed and tested
+**CURRENT STATUS**: ⚠️ Performance improvements implemented but critical issues block production
 - ✅ LLM batch processing implemented and verified
-- ✅ Processing profiles working as expected
+- ⚠️ Processing profiles working (except quality profile hangs)
 - ✅ Optional features properly integrated
 - ✅ Memory optimizations in place
-- ⏳ Ready for production testing
+- 🚨 **BLOCKED**: Critical quality and performance issues prevent production deployment
+  - Uniform scoring makes tool ineffective for content selection
+  - Quality profile hangs make advanced processing unusable
 
 ### Performance Results (2025-08-14)
 **Major Improvements Achieved:**

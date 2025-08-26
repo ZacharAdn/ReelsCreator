@@ -1,68 +1,86 @@
 # System Specification - Content Extractor
-Date: 2024
+Date: August 2025 (Updated for v2.0 Stage-based Architecture)
 
 ## System Purpose
 An automated system for extracting high-quality content from long data science tutorial recordings and preparing it for short-form social media content.
 
 ## General Architecture
-The system is built as a Python package containing several core modules that perform the processing pipeline.
+The system is built as a **stage-based modular architecture** with 6 distinct processing stages, orchestrated through a central pipeline manager. Each stage is independent, testable, and can be configured separately.
 
-### Core Dependencies
-- `whisper`: Audio transcription with timestamps
-- `sentence-transformers`: Embedding generation for semantic analysis
-- `moviepy` or `ffmpeg-python`: Video processing and audio extraction
-- `open-source-llm`: Free LLM for content evaluation (GPT-OSS/QWEN)
-- `torch`: ML processing infrastructure
-- `pandas`: Data management and export
+### Stage-Based Pipeline Architecture
+```
+src/
+├── stages/                    # 6 processing stages
+│   ├── _01_audio_extraction/  # Video → Audio conversion
+│   ├── _02_transcription/     # Audio → Text with timestamps  
+│   ├── _03_content_segmentation/ # Text → Segments
+│   ├── _04_speaker_segmentation/ # Advanced speaker analysis
+│   ├── _05_content_evaluation/   # Quality scoring
+│   └── _06_output_generation/    # Results export
+├── orchestrator/             # Pipeline coordination
+├── shared/                   # Common utilities
+└── main.py                  # Entry point
+```
 
-## Current Workflow
+### Core Dependencies (v2.0)
+- **Audio Processing**: `openai-whisper>=20231117` (official OpenAI Whisper)
+- **Language Models**: `transformers>=4.30.0` with Qwen2.5-0.5B-Instruct, Phi-3-mini
+- **Embeddings**: `sentence-transformers>=2.2.2` (all-MiniLM-L6-v2)
+- **Video Processing**: `ffmpeg-python` + system FFmpeg installation
+- **ML Infrastructure**: `torch>=2.0.0` with M1 Mac MPS support
+- **CLI & Progress**: `click`, `rich` for enhanced user experience
+- **Data Export**: `pandas` for CSV/JSON output management
 
-### 1. Audio Extraction and Processing
-- Extract audio from video files using FFmpeg
-  - Supports: MP4, MOV, AVI, MKV
-  - Optional: Keep extracted audio file (`--keep-audio`)
-- Transcribe using OpenAI Whisper
-  - Model options: tiny/base/small/medium/large
-  - Normalized confidence scores (0-1 range)
-  - Timestamped output with word-level alignment
+## Current Workflow (Stage-based v2.0)
 
-### 2. Language Processing and Analysis
-- Direct segment usage from Whisper
-  - Configurable model size (tiny/base/small/medium/large)
-  - Language-aware processing (Hebrew + English)
-  - Technical term preservation
-- Generate semantic embeddings
-  - Using `all-MiniLM-L6-v2` by default
-  - Batched processing (32 segments/batch)
-  - Optional embedding export (`--include-embeddings`)
+### Stage 1: Audio Extraction (`_01_audio_extraction/`)
+**Purpose**: Convert video files to audio format for processing
+- **Input**: Video files (MP4, MOV, AVI, MKV)
+- **Process**: FFmpeg-based extraction to WAV format
+- **Output**: High-quality audio file + metadata
+- **Key Features**: Batch processing, format validation, quality preservation
 
-### 3. Content Evaluation
-- Quality assessment using Qwen2.5-0.5B-Instruct
-  - Runs locally, no API costs
-  - GPU acceleration when available
-  - Deterministic scoring with `.eval()` mode
-  - Robust JSON parsing with fallbacks
-- Evaluation criteria:
-  - Educational value
-  - Clarity and understandability
-  - Practical demonstration
-  - Short-form content potential
+### Stage 2: Transcription (`_02_transcription/`)  
+**Purpose**: Convert audio to timestamped text with multilingual support
+- **Input**: Audio file from Stage 1
+- **Process**: OpenAI Whisper transcription with Hebrew/English support
+- **Output**: Timestamped segments with confidence scores
+- **Key Features**: 
+  - M1 Mac GPU acceleration (MPS)
+  - Technical term preservation (74 data science terms)
+  - Confidence score normalization (0-1 range)
 
-### 4. Export Options
-- JSON output (configurable):
-  - Full segment metadata
-  - Timestamps and transcriptions
-  - Quality scores and reasoning
-  - Optional embeddings inclusion
-- CSV export for analysis:
-  - Start/end times
-  - Text content
-  - Confidence scores
-  - Quality metrics
-- Console summary:
-  - Processing statistics
-  - Top segments preview
-  - Quality distribution
+### Stage 3: Content Segmentation (`_03_content_segmentation/`)
+**Purpose**: Create content segments optimized for short-form content
+- **Input**: Transcribed segments from Stage 2
+- **Process**: Smart segmentation with overlap management
+- **Output**: 15-45 second segments with natural boundaries
+- **Key Features**: Deduplication, topic boundary detection, length optimization
+
+### Stage 4: Speaker Segmentation (`_04_speaker_segmentation/`) 
+**Purpose**: Advanced speaker analysis and teacher/student identification
+- **Input**: Audio file + transcription segments
+- **Process**: Hybrid frequency analysis + speaker classification
+- **Output**: Speaker labels, teacher/student roles, confidence scores
+- **Key Features**: Frequency analysis, temporal smoothing, role classification
+
+### Stage 5: Content Evaluation (`_05_content_evaluation/`)
+**Purpose**: Quality scoring for educational value assessment  
+- **Input**: Segmented content with speaker information
+- **Process**: Local LLM evaluation using Qwen2.5-0.5B-Instruct
+- **Output**: Quality scores (0-1) with detailed reasoning
+- **Key Features**: 
+  - Batch processing (5-8 segments simultaneously)
+  - Educational value criteria
+  - Technical content weighting
+  - **⚠️ Current Issue**: Uniform scoring problem
+
+### Stage 6: Output Generation (`_06_output_generation/`)
+**Purpose**: Export results in multiple formats
+- **Input**: Evaluated segments with quality scores
+- **Process**: Format conversion and summary generation
+- **Output**: JSON/CSV files + console summary
+- **Key Features**: Configurable exports, embeddings inclusion, filtering
 
 ## Data Structure
 
@@ -79,83 +97,110 @@ class Segment:
     reasoning: Optional[str]
 ```
 
-## Configuration Parameters
+## Configuration System (v2.0)
 
-### Core Processing
-- `min_score_threshold`: Quality cutoff (default: 0.7)
+### Processing Profiles (Pre-configured Optimizations)
+```bash
+# Draft Profile (70% faster, basic quality)
+python -m src video.mp4 --profile draft
+
+# Balanced Profile (default, good quality/speed balance)  
+python -m src video.mp4 --profile balanced
+
+# Quality Profile (⚠️ CURRENTLY HANGS - being fixed)
+python -m src video.mp4 --profile quality
+```
+
+### Core Processing Parameters
+- `min_score_threshold`: Quality cutoff (0.7 default, 0.6 draft, 0.8 quality)
 - `whisper_model`: Model size (tiny/base/small/medium/large)
-- `primary_language`: Primary content language (default: "he")
-- `preserve_technical_terms`: Keep English technical terms (default: true)
+- `primary_language`: "he" (Hebrew) with English technical terms
+- `evaluation_model`: Qwen2.5-0.5B-Instruct (draft/balanced), Phi-3-mini (quality)
+- `evaluation_batch_size`: 5-8 segments processed simultaneously
 
-### Performance Profiles
-- **Draft Mode** (70% faster):
-  ```python
-  config = ProcessingConfig.create_profile("draft")
-  # Uses: tiny whisper model, minimal processing
-  ```
-- **Balanced Mode** (default):
-  ```python
-  config = ProcessingConfig.create_profile("balanced")
-  # Uses: base whisper model, standard features
-  ```
-- **Quality Mode** (20% slower):
-  ```python
-  config = ProcessingConfig.create_profile("quality")
-  # Uses: medium whisper model, all features
-  ```
+### Multilingual Support
+- `preserve_technical_terms`: Maintains 74 data science terms in English
+- `enable_technical_terms`: Toggle technical term processing (performance optimization)
+- `primary_language`: Hebrew base with automatic English detection
+- `technical_language`: English for data science terminology
 
-### Performance Options
-- `evaluation_batch_size`: LLM batch size (default: 5)
-- `embedding_batch_size`: Embedding batch size (default: 32)
-- `enable_similarity_analysis`: Enable similarity detection (default: false)
-- `minimal_mode`: Skip non-essential processing (default: false)
-- `enable_technical_terms`: Process technical terms (default: true)
-- `keep_audio`: Retain extracted audio (default: false)
-- `include_embeddings_in_json`: Export embeddings (default: false)
+### Advanced Options
+- `enable_similarity_analysis`: Cross-segment similarity detection (default: false)
+- `minimal_mode`: Skip non-essential features for maximum speed (default: false)
+- `keep_audio`: Retain extracted audio files (default: false)  
+- `include_embeddings_in_json`: Export embeddings in output (default: false)
+- `enable_speaker_detection`: Advanced speaker analysis (default: false)
+- `primary_speaker_only`: Filter to primary speaker segments (requires Python 3.9+)
 
-### Model Selection
-- `embedding_model`: Sentence transformer model (default: all-MiniLM-L6-v2)
-- `whisper_model`: Transcription model (tiny/base/small/medium/large)
-- `evaluation_model`: LLM model for content evaluation:
-  - Default: "Qwen/Qwen2.5-0.5B-Instruct" (fast)
-  - Quality: "microsoft/Phi-3-mini-4k-instruct" (better but slower)
-  - Alternative: "microsoft/DialoGPT-small" (balanced)
+### Model Configuration (v2.0)
+- **Transcription**: OpenAI Whisper (tiny→large models available)
+- **Embeddings**: `all-MiniLM-L6-v2` (384-dimensional vectors)
+- **Evaluation**: Qwen2.5-0.5B-Instruct (fast), Phi-3-mini-4k-instruct (quality)
+- **Language**: Hebrew spaCy model + 74 English technical terms
+- **GPU**: M1 Mac MPS acceleration, CUDA support on compatible hardware
 
-## Current Limitations & Future Work
+## Current Limitations & Known Issues (v2.0)
 
-### Current Focus (v1)
-- Optimized processing profiles (draft/balanced/quality)
-- Batch LLM evaluation (5-8 segments at once)
-- Memory-efficient processing options
-- Performance monitoring and metrics
+### 🚨 **Critical Issues Requiring Fix**
+1. **Segment Quality Uniformity**: All segments receive identical 0.75 scores
+   - **Impact**: Cannot distinguish high-value content
+   - **Status**: Solution designed, needs implementation
 
-### Future Enhancements (v2+)
-- Advanced segmentation with overlapping
-- Speaker diarization integration
-- Complex language mixing analysis
-- Full parallel processing capabilities
+2. **Quality Profile Performance Hang**: LLM model loading causes indefinite hangs
+   - **Impact**: Quality profile unusable in production
+   - **Status**: Timeout and fallback mechanisms needed
 
-### Performance Roadmap
-- **Phase 1** ✅ (Current):
-  - LLM batch processing
-  - Processing profiles
-  - Optional features
-  - Memory optimization
-- **Phase 2** (Planned):
-  - Full parallel processing
-  - GPU memory optimization
-  - Caching layer
-  - Real-time feedback
+3. **Speaker Diarization Limitations**: Requires Python 3.9+ (currently 3.8)
+   - **Impact**: Limited advanced speaker features
+   - **Status**: Infrastructure ready, blocked by Python version
 
-### Future Features
+### ⚠️ **Minor Limitations**  
+- Processing requires local GPU for optimal performance
+- Hebrew language requires system-level language support
+- Large videos (>30 minutes) may require memory optimization
+- Quality profile currently unstable (use balanced mode)
+
+### 🚀 **Development Roadmap**
+
+**v2.1 (September 2025) - Stability Release:**
+- Fix segment quality variance issue
+- Resolve quality profile performance hangs  
+- Complete project file cleanup
+- Expand test coverage to >80%
+
+**v2.2 (October 2025) - Performance Optimization:**
+- Python 3.9+ migration for full speaker diarization
+- GPU memory optimization improvements
+- Advanced segmentation with intelligent overlaps
+- Performance monitoring dashboard
+
+**v3.0 (Q4 2025) - Advanced Features:**
 - Web interface for easier usage
-- Real-time processing feedback
-- Integration with video editors
-- Automated segment selection
-- Multi-language support optimization
+- Real-time processing feedback with progress bars
+- Integration APIs for video editors
+- Automated content curation workflows
+- Multi-speaker educational content optimization
 
-## Technical Notes
-1. Requires Python 3.8+
-2. GPU recommended for better performance
-3. FFmpeg required for video processing (system dependency)
-4. No paid API dependencies - uses free open-source models 
+## Technical Notes (v2.0)
+1. **Python Requirements**: 3.8+ (3.9+ recommended for full speaker features)
+2. **GPU Support**: M1 Mac MPS acceleration, NVIDIA CUDA compatible
+3. **System Dependencies**: FFmpeg required for video processing
+4. **Memory Requirements**: 4-8GB RAM depending on processing profile  
+5. **Storage**: ~2GB for models (Whisper, transformers, embeddings)
+6. **No API Costs**: Uses only local open-source models (Qwen2.5, Phi-3, Whisper)
+
+## Quick Start (v2.0)
+```bash
+# Setup
+python -m venv reels_extractor_env && source reels_extractor_env/bin/activate
+pip install -r requirements.txt
+
+# Basic Usage (Recommended)
+python -m src path/to/video.mp4 --profile balanced
+
+# Fast Processing (Testing)  
+python -m src path/to/video.mp4 --profile draft --export-csv results.csv
+
+# ⚠️ Avoid Quality Profile (Currently Hangs)
+# python -m src path/to/video.mp4 --profile quality
+```

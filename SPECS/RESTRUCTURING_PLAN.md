@@ -10,7 +10,7 @@ Transform the current monolithic processing pipeline into a modular, stage-based
 - Hard to test individual components
 - Difficult to debug specific stages
 - No clear visualization/analysis separation
-- Monolithic `content_extractor.py` doing everything
+- ✅ Monolithic `content_extractor.py` restructured into stage-based architecture
 
 ### Current Processing Pipeline
 ```
@@ -35,7 +35,7 @@ src/
 │   │   │   └── audio_waveform_plots.py
 │   │   └── README.md
 │   │
-│   ├── 02_speaker_segmentation/
+│   ├── _04_speaker_segmentation/
 │   │   ├── code/
 │   │   │   ├── __init__.py
 │   │   │   ├── hybrid_detector.py
@@ -120,11 +120,11 @@ src/
 ### Phase 1: Setup Infrastructure (Week 1)
 1. **Create Stage Structure**
    ```bash
-   mkdir -p src/stages/{01_audio_extraction,02_speaker_segmentation,03_transcription,04_content_segmentation,05_content_evaluation,06_output_generation}/{code,test,visualizations}
+   mkdir -p src/stages/{_01_audio_extraction,_02_transcription,_03_content_segmentation,_04_speaker_segmentation,_05_content_evaluation,_06_output_generation}/{code,test,visualizations}
    ```
 
 2. **Move Existing Files**
-   - Move speaker segmentation files to `02_speaker_segmentation/code/`
+   - ✅ Move speaker segmentation files to `_04_speaker_segmentation/code/` (COMPLETED)
    - Move visualizations to appropriate `/visualizations/` folders
    - Move tests to `/test/` folders
 
@@ -159,7 +159,7 @@ class VideoProcessor(BaseStage):
 
 #### 2.2 Speaker Segmentation Stage (Already Started)
 ```python
-# stages/02_speaker_segmentation/code/__init__.py
+# stages/_04_speaker_segmentation/code/__init__.py
 from .hybrid_detector import HybridSpeakerDetector
 from .frequency_analyzer import FrequencyAnalyzer
 
@@ -218,7 +218,7 @@ class PipelineOrchestrator:
 
 #### 4.1 Stage-Specific Tests
 ```python
-# stages/02_speaker_segmentation/test/test_hybrid_detector.py
+# stages/_04_speaker_segmentation/test/test_hybrid_detector.py
 class TestHybridDetector:
     def test_frequency_analysis(self):
         # Test frequency analysis accuracy
@@ -235,7 +235,7 @@ class TestHybridDetector:
 
 #### 4.2 Interactive Visualizations
 ```python
-# stages/02_speaker_segmentation/visualizations/speaker_timeline.py
+# stages/_04_speaker_segmentation/visualizations/speaker_timeline.py
 def create_interactive_timeline(speaker_segments, audio_path):
     # Create plotly timeline with audio playback
     pass
@@ -312,7 +312,7 @@ if __name__ == "__main__":
 ### Testing Framework
 ```bash
 # Run stage-specific tests
-pytest src/stages/02_speaker_segmentation/test/
+pytest src/stages/_04_speaker_segmentation/test/
 
 # Run integration tests  
 pytest tests/integration/
@@ -324,7 +324,7 @@ pytest --cov=src/stages/
 ### Visualization Tools
 ```bash
 # Generate stage visualizations
-python -m src.stages.02_speaker_segmentation.visualizations.speaker_timeline
+python -m src.stages._04_speaker_segmentation.visualizations.speaker_timeline
 
 # Create performance dashboard
 python -m orchestrator.performance_dashboard

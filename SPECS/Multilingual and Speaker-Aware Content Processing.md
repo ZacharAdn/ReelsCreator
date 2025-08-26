@@ -74,12 +74,12 @@ Implementation status for handling educational content with multiple speakers an
 
 ### ✅ COMPLETED - Code Implementation
 - **New Files**:
-  - `src/language_processor.py` - Multilingual processing (74 technical terms)
-  - `src/speaker_analysis.py` - Speaker diarization infrastructure (mock implementation)
+  - `src/stages/_02_transcription/code/language_processor.py` - Multilingual processing (74 technical terms)
+  - `src/stages/_04_speaker_segmentation/code/speaker_analysis.py` - Speaker diarization infrastructure
 - **Enhanced Files**:
   - `src/models.py` - Extended with speaker/language fields
-  - `src/transcription.py` - M1 GPU optimization + multilingual support
-  - `src/content_extractor.py` - Integrated new processing pipeline
+  - `src/stages/_02_transcription/code/transcription.py` - M1 GPU optimization + multilingual support
+  - `src/content_extractor.py` and `src/orchestrator/pipeline_orchestrator.py` - Integrated new processing pipeline
 
 ### ⚠️ IN PROGRESS - Configuration Parameters
 - ✅ `primary_language: str = "he"` (Hebrew)
@@ -109,18 +109,27 @@ Implementation status for handling educational content with multiple speakers an
 - Reduced manual filtering needs
 - Better segment selection
 
-## Current Issues & Next Steps
+## Current Issues & Next Steps (August 2025)
 
-### 🐛 Known Issues
-1. **whisper-timestamped API**: Fixed `word_timestamps` parameter compatibility
-2. **pyannote.audio**: Compilation fails on Python 3.8/M1 Mac - requires newer Python or pre-compiled wheels
-3. **spaCy**: Similar compilation issues - using lightweight `langdetect` instead
+### 🚨 **Critical Issues Blocking Production**
+1. **Quality Profile Hangs**: LLM model loading causes indefinite hangs
+   - **Impact**: Quality profile unusable, blocks production deployment
+   - **Status**: Needs immediate timeout/fallback implementation
+2. **Segment Quality Uniformity**: All segments receive identical 0.75 scores
+   - **Impact**: Cannot distinguish high-value Hebrew educational content
+   - **Status**: Enhanced evaluation algorithm needed
 
-### 🎯 Next Steps (Priority Order)
-1. **Immediate**: Test optimized processing profiles with Hebrew content
-2. **Short-term**: Validate technical term preservation in draft mode
-3. **Medium-term**: Upgrade to Python 3.9+ for pyannote.audio support
-4. **Long-term**: Revisit advanced features with performance focus
+### 🐛 **Known Technical Issues**
+3. **pyannote.audio**: Compilation fails on Python 3.8/M1 Mac - requires newer Python or pre-compiled wheels
+4. **Advanced Speaker Features**: Limited by Python 3.8 compatibility
+5. **whisper-timestamped API**: ✅ Fixed `word_timestamps` parameter compatibility
+
+### 🎯 **Next Steps (Priority Order)**
+1. **URGENT**: Fix quality profile performance hangs (Week 1)
+2. **URGENT**: Resolve segment quality uniformity issue (Week 1)  
+3. **Short-term**: Validate technical term preservation across all profiles
+4. **Medium-term**: Upgrade to Python 3.9+ for full speaker diarization
+5. **Long-term**: Revisit advanced multilingual features after core stability
 
 ### 🔄 Performance Updates (2025-08-14)
 - **Processing Profiles Added**:
@@ -136,15 +145,20 @@ Implementation status for handling educational content with multiple speakers an
   - Memory-efficient language processing
   - Configurable feature set
 
-### ✅ Working Features (Ready for Testing)
-- M1 GPU accelerated transcription
+### ✅ Working Features (Production Ready)
+- M1 GPU accelerated transcription (draft/balanced profiles)
 - Hebrew language detection and processing
 - Technical term identification (74 terms)
-- Enhanced multilingual transcription with `whisper-timestamped`
+- Enhanced multilingual transcription
 - Basic infrastructure for speaker processing
 
-### 📊 Technical Performance
-- **GPU Support**: ✅ MPS (Metal Performance Shaders) detected and working
-- **Dependencies**: 23/25 core packages installed successfully
-- **Technical Terms**: 74 data science terms loaded and ready
-- **Processing Pipeline**: Integrated and functional (pending speaker diarization)
+### ⚠️ Features with Known Issues
+- **Quality profile**: Hangs during processing (use balanced profile instead)
+- **Quality scoring**: Uniform 0.75 scores across all segments
+- **Advanced speaker features**: Limited by Python 3.8 compatibility
+
+### 📊 Technical Performance (August 2025)
+- **GPU Support**: ✅ MPS (Metal Performance Shaders) working
+- **Dependencies**: 23/25 core packages installed successfully  
+- **Technical Terms**: 74 data science terms loaded and operational
+- **Processing Pipeline**: ⚠️ Functional with known quality/performance issues

@@ -33,7 +33,7 @@ reels_extractor/
 1. **Remove Unnecessary Files**
    - All `__pycache__` directories
    - Temporary files (`test_frame.png`, `test_video.mp4`)
-   - Setup files (`setup_environment.py`, `requirements_basic.txt`)
+   - Setup files (✅ `setup_environment.py`, `requirements_basic.txt` already removed)
    - Legacy `fixes/` directory
    - Old results in `results/`
 
@@ -174,22 +174,63 @@ class QualityProfileOptimizer:
             return await asyncio.gather(*futures)
 ```
 
-## 📊 Implementation Priority
+## 📊 Implementation Priority & Roadmap
 
-1. **Quality Profile Performance (HIGH)**
-   - Immediate impact on usability
-   - Blocks effective system usage
-   - Critical for production deployment
+### **🔥 SPRINT 1 (Week 1) - Critical Production Blockers**
 
-2. **Segment Uniformity (MEDIUM)**
-   - Affects output quality
-   - Important for user trust
-   - Required for accurate content selection
+#### 1. **Quality Profile Performance Hang (URGENT)**
+- **Timeline**: 3-5 days
+- **Success Criteria**: 
+  - Quality profile completes 5-minute video processing in <8 minutes
+  - No indefinite hangs during LLM model loading
+  - Graceful fallback to smaller models when loading fails
+  - Progress indicators show model loading status
+- **Deliverables**: 
+  - Timeout decorators (300s max)
+  - Model fallback hierarchy (Qwen2.5→Phi-3→DialoGPT)
+  - Rich progress bars for loading stages
 
-3. **Project Cleanup (LOW)**
-   - Improves maintainability
-   - Better developer experience
-   - Technical debt reduction
+#### 2. **Segment Quality Uniformity (URGENT)**  
+- **Timeline**: 4-6 days
+- **Success Criteria**:
+  - Score variance >0.1 across segments in typical video
+  - Realistic score distribution (not all 0.75)
+  - Top 20% segments clearly distinguishable from bottom 20%
+  - Quality reasoning varies meaningfully between segments
+- **Deliverables**:
+  - Enhanced evaluation algorithm with relative scoring
+  - Context-aware quality assessment
+  - Multi-criteria evaluation (clarity, interest, information, audio)
+
+### **📈 SPRINT 2 (Week 2) - Stabilization**
+
+#### 3. **Project File Organization Completion**
+- **Timeline**: 2-3 days  
+- **Success Criteria**:
+  - All documentation links functional
+  - No references to deleted/moved files
+  - Clear directory structure documentation
+  - Developer onboarding guide updated
+- **Status**: ✅ 80% complete (documentation updated)
+
+### **🚀 SPRINT 3 (Week 3+) - Advanced Features**
+
+#### 4. **Python 3.9+ Migration & Full Speaker Diarization**
+- **Timeline**: 1-2 weeks
+- **Success Criteria**:
+  - pyannote.audio successfully installed and working
+  - Teacher/student role detection >85% accuracy
+  - Speaker confidence scores >0.85 for primary speaker
+  - Advanced speaker features accessible via CLI
+- **Prerequisite**: Python environment upgrade
+
+#### 5. **Performance Benchmarking & Monitoring**
+- **Timeline**: 1 week
+- **Success Criteria**:
+  - Automated performance regression tests
+  - Memory usage tracking <8GB for quality profile
+  - Processing speed benchmarks for all profiles
+  - Performance dashboard for monitoring
 
 ## 🔧 Technical Requirements
 

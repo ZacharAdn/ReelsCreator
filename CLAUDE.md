@@ -14,11 +14,8 @@ source reels_extractor_env/bin/activate  # macOS/Linux
 # Install dependencies (standard full installation)
 pip install -r requirements.txt
 
-# Install basic dependencies only (if full install fails)
-pip install -r requirements_basic.txt
-
-# Setup environment (M1 Mac optimization, Hebrew models)
-python setup_environment.py
+# Note: requirements_basic.txt and setup_environment.py have been removed
+# Use standard installation only
 ```
 
 ### Running the System
@@ -29,8 +26,8 @@ python -m src path/to/video.mp4
 # Fast processing (70% faster, good for testing)
 python -m src path/to/video.mp4 --profile draft
 
-# High quality processing (20% slower)
-python -m src path/to/video.mp4 --profile quality
+# ⚠️ High quality processing (CURRENTLY HANGS - USE BALANCED INSTEAD)
+# python -m src path/to/video.mp4 --profile quality
 
 # For balanced speed/accuracy:
 python -m src video.mp4 --profile balanced
@@ -63,33 +60,50 @@ pytest tests/test_benchmark.py
 # Check FFmpeg installation
 ffmpeg -version
 
-# Test basic video processing without AI models
-python -c "from src.video_processing import extract_audio; extract_audio('test.mp4', 'test.wav')"
+# Test basic video processing without AI models (updated path)
+python -c "from src.stages._01_audio_extraction.code.video_processing import VideoProcessor; print('Audio extraction available')"
 
 # Test Whisper installation
 python -c "import whisper; print(whisper.available_models())"
+
+# Test stage-based architecture
+python -c "from src.orchestrator.pipeline_orchestrator import PipelineOrchestrator; print('Pipeline orchestrator available')"
 ```
 
 ## Architecture Overview
 
 This is a **multilingual educational content extraction pipeline** specifically optimized for Hebrew/English data science tutorials. The system processes long-form educational recordings to extract high-value segments suitable for short-form content creation.
 
-### Core Components
+## ⚠️ **CRITICAL KNOWN ISSUES**
 
-**Main Orchestrator**: `src/content_extractor.py` - ContentExtractor class manages the entire pipeline
+Before working with this codebase, be aware of these production-blocking issues:
 
-**Processing Pipeline**:
-1. **Video Processing** (`src/video_processing.py`) - FFmpeg-based audio extraction
-2. **Transcription** (`src/transcription.py`) - OpenAI Whisper with Hebrew/English support
-3. **Segmentation** (`src/segmentation.py`) - Direct Whisper segment boundaries
-4. **Speaker Analysis** (`src/speaker_analysis.py`) - Teacher vs student identification
-5. **Evaluation** (`src/evaluation.py`) - Local LLM quality assessment (Qwen2.5, Phi-3)
-6. **Embeddings** (`src/embeddings.py`) - Sentence-transformers semantic analysis
+1. **Quality Profile Hangs**: The `--profile quality` option hangs indefinitely during LLM model loading. **Always use `--profile balanced` for production.**
 
-**Advanced Features**:
-- **Speaker Diarization**: `src/stages/01_speaker_segmentation/` - Advanced speaker detection module
-- **Language Processing**: `src/language_processor.py` - Hebrew/English multilingual handling
-- **Data Models**: `src/models.py` - Configuration and result structures
+2. **Uniform Quality Scores**: Current evaluation system gives all segments identical 0.75 scores, making it impossible to distinguish high-value content from low-value content.
+
+3. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.8).
+
+**For current status and planned fixes, see `SPECS/PROJECT_STATUS.md`**
+
+---
+
+### Core Components (v2.0 Stage-based Architecture)
+
+**Main Orchestrator**: `src/orchestrator/pipeline_orchestrator.py` - PipelineOrchestrator manages the 6-stage pipeline
+
+**Processing Stages (6-Stage Architecture)**:
+1. **Audio Extraction** (`src/stages/_01_audio_extraction/code/video_processing.py`) - FFmpeg-based video to audio
+2. **Transcription** (`src/stages/_02_transcription/code/transcription.py`) - Whisper with Hebrew/English + technical terms
+3. **Content Segmentation** (`src/stages/_03_content_segmentation/code/segmentation.py`) - Reels-optimized segments
+4. **Speaker Segmentation** (`src/stages/_04_speaker_segmentation/code/`) - Advanced speaker analysis & classification
+5. **Content Evaluation** (`src/stages/_05_content_evaluation/code/evaluation.py`) - LLM quality assessment
+6. **Output Generation** (`src/stages/_06_output_generation/code/`) - Multi-format exports (JSON/CSV)
+
+**Infrastructure**:
+- **Stage Management**: `src/orchestrator/` - Pipeline coordination, configuration, performance monitoring
+- **Shared Utilities**: `src/shared/` - Base classes, exceptions, models, common utilities  
+- **Legacy Interface**: `src/content_extractor.py` - Backwards compatibility wrapper
 
 ### Key Technologies
 
@@ -102,9 +116,11 @@ This is a **multilingual educational content extraction pipeline** specifically 
 ### Configuration System
 
 The system uses `ProcessingConfig` class with three optimized profiles:
-- **draft**: 70% faster, minimal quality (good for testing)
-- **balanced**: Default settings
-- **quality**: 20% slower, maximum quality
+- **draft**: 70% faster, minimal quality (good for testing) ✅ Working
+- **balanced**: Default settings ✅ Working (Recommended)
+- **quality**: 20% slower, maximum quality ⚠️ **CURRENTLY HANGS** - Do not use
+
+**⚠️ CRITICAL ISSUE**: Quality profile hangs indefinitely during LLM model loading. Use balanced profile for production.
 
 Key parameters:
 - `segment_duration`: 45s (typical TikTok/Reel length)
@@ -131,6 +147,7 @@ Results include:
 - **Embeddings**: For similarity analysis and clustering
 - **Speaker information**: Teacher vs student identification
 - **Quality reasoning**: AI-generated evaluation explanations
+- **⚠️ KNOWN ISSUE**: Current evaluation gives all segments identical 0.75 scores (cannot distinguish quality)
 
 ### Hebrew/English Specifics
 
@@ -150,9 +167,11 @@ Results include:
 ### Common Development Patterns
 
 When modifying this codebase:
-1. **Follow modular architecture**: Each stage is independent
-2. **Use configuration objects**: ProcessingConfig for all parameters
+1. **Follow stage-based architecture**: Each of the 6 stages in `src/stages/` is independent
+2. **Use configuration objects**: ProcessingConfig for all parameters  
 3. **Maintain Hebrew/English support**: Test with multilingual content
 4. **Preserve error handling**: Comprehensive logging throughout
 5. **Test thoroughly**: Core, integration, and performance tests
 6. **M1 Mac compatibility**: Always test MPS acceleration paths
+7. **Avoid quality profile**: Use balanced profile due to hanging issues
+8. **Be aware of scoring limitations**: Current evaluation provides uniform scores
