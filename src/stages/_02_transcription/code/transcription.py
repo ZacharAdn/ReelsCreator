@@ -8,7 +8,10 @@ from typing import List, Dict, Any
 from pathlib import Path
 import time
 
-from .models import Segment
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from shared.models import Segment
 import math
 
 # Try whisper-timestamped first, fallback to openai-whisper

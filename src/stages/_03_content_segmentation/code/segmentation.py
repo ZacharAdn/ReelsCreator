@@ -3,8 +3,14 @@ Segmentation module for creating overlapping segments
 """
 
 import logging
-from typing import List
-from .models import Segment
+import re
+import numpy as np
+from typing import List, Tuple, Optional
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from shared.models import Segment
+from shared.progress_monitor import get_progress_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +41,6 @@ class SegmentProcessor:
             List of overlapping segments
         """
         import time
-        from tqdm import tqdm
         
         start_time = time.time()
         
@@ -58,53 +63,40 @@ class SegmentProcessor:
         logger.info(f"📈 Expected windows: {expected_windows}")
         
         window_count = 0
-        progress_bar = tqdm(total=expected_windows, desc="Creating overlapping segments", unit="window")
+        progress_monitor = get_progress_monitor()
         
-        while current_start < total_duration:
-            window_count += 1
-            current_end = min(current_start + self.segment_duration, total_duration)
-            
-            # Find segments that fall within this window
-            window_start_time = time.time()
-            window_segments = [
-                seg for seg in segments 
-                if (seg.start_time < current_end and seg.end_time > current_start)
-            ]
-            
-            if window_segments:
-                # Combine text from overlapping segments
-                text_start_time = time.time()
-                combined_text = self._combine_segment_text(window_segments, current_start, current_end)
-                text_time = time.time() - text_start_time
+        with progress_monitor.track_stage("Content Segmentation", expected_windows, "Creating overlapping segments") as tracker:
+            while current_start < total_duration:
+                window_count += 1
+                current_end = min(current_start + self.segment_duration, total_duration)
                 
-                # Log slow text combinations
-                if text_time > 0.5:
-                    logger.warning(f"⚠️ Slow text combination: {text_time:.2f}s for window {window_count} ({len(window_segments)} segments)")
+                # Find segments that fall within this window
+                window_segments = [
+                    seg for seg in segments 
+                    if (seg.start_time < current_end and seg.end_time > current_start)
+                ]
                 
-                # Calculate average confidence
-                avg_confidence = sum(seg.confidence for seg in window_segments) / len(window_segments)
+                if window_segments:
+                    # Combine text from overlapping segments
+                    combined_text = self._combine_segment_text(window_segments, current_start, current_end)
+                    
+                    # Calculate average confidence
+                    avg_confidence = sum(seg.confidence for seg in window_segments) / len(window_segments)
+                    
+                    # Create new segment
+                    new_segment = Segment(
+                        start_time=current_start,
+                        end_time=current_end,
+                        text=combined_text,
+                        confidence=avg_confidence
+                    )
+                    
+                    overlapping_segments.append(new_segment)
                 
-                # Create new segment
-                new_segment = Segment(
-                    start_time=current_start,
-                    end_time=current_end,
-                    text=combined_text,
-                    confidence=avg_confidence
-                )
-                
-                overlapping_segments.append(new_segment)
-            
-            # Progress update every 10 windows
-            if window_count % 10 == 0:
-                elapsed = time.time() - start_time
-                rate = window_count / elapsed if elapsed > 0 else 0
-                logger.debug(f"📈 Progress: {window_count}/{expected_windows} windows ({rate:.1f} windows/s)")
-            
-            # Move to next segment with overlap (step = segment_duration - overlap_duration)
-            current_start += (self.segment_duration - self.overlap_duration)
-            progress_bar.update(1)
-        
-        progress_bar.close()
+                # Move to next segment with overlap
+                current_start += (self.segment_duration - self.overlap_duration)
+                tracker.update(1)
+                tracker.set_postfix(segments=len(overlapping_segments))
         
         total_time = time.time() - start_time
         logger.info(f"✅ Created {len(overlapping_segments)} overlapping segments from {len(segments)} original segments in {total_time:.2f}s")

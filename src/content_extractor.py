@@ -9,13 +9,13 @@ from pathlib import Path
 from tqdm import tqdm
 
 from .models import Segment, ProcessingConfig, ProcessingResult
-from .video_processing import VideoProcessor
-from .transcription import WhisperTranscriber
-from .segmentation import SegmentProcessor
-from .embeddings import EmbeddingGenerator
-from .evaluation import ContentEvaluator
-from .speaker_analysis import SpeakerDiarizer
-from .language_processor import LanguageProcessor
+from .stages._01_audio_extraction.code.video_processing import VideoProcessor
+from .stages._02_transcription.code.transcription import WhisperTranscriber
+from .stages._03_content_segmentation.code.segmentation import SegmentProcessor
+from .stages._05_content_evaluation.code.embeddings import EmbeddingGenerator
+from .stages._05_content_evaluation.code.evaluation import ContentEvaluator
+from .stages._04_speaker_segmentation.code.speaker_analysis import SpeakerDiarizer
+from .stages._02_transcription.code.language_processor import LanguageProcessor
 
 logger = logging.getLogger(__name__)
 

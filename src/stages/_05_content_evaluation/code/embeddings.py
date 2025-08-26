@@ -7,7 +7,10 @@ from typing import List, Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from .models import Segment
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from shared.models import Segment
 
 logger = logging.getLogger(__name__)
 

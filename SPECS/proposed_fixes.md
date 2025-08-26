@@ -126,83 +126,9 @@ This document proposes a prioritized set of improvements to the content extracti
 4. **🔧 Test Real Video Processing** - Verify complete pipeline works  
 5. **📊 Add Sample Data** - Enable data-driven testing
 
-### Performance Optimization Plan (2025-08-14)
+### Performance Optimization Plan (2025-08-21)
 
-#### Current Performance Metrics
-- **Total Processing Time**: ~11 minutes for short clips
-- **Breakdown per Step**:
-  - Transcription: ~70 seconds
-  - Embedding Generation: <1 second
-  - LLM Evaluation: ~26 seconds/segment
-
-#### 1) Immediate Optimizations (Low-Hanging Fruit)
-- **LLM Processing** ⚠️ HIGH PRIORITY
-  ```python
-  # Add batch processing for LLM evaluation
-  batch_size: int = 5  # Process 5 segments at once
-  max_tokens: int = 150  # Limit response length
-  ```
-  - Expected Impact: 60-70% reduction in LLM processing time
-
-- **Transcription Speed** 🎯 MEDIUM PRIORITY
-  ```python
-  # Add configurable transcription settings
-  config = ProcessingConfig(
-      whisper_model="tiny",  # For drafts/testing
-      whisper_model="base",  # For production
-      enable_word_timestamps=False  # When not needed
-  )
-  ```
-  - Expected Impact: 30-40% faster transcription
-
-- **Memory Usage** 📊 MEDIUM PRIORITY
-  ```python
-  # Add memory-efficient processing
-  enable_progressive_gc=True
-  clear_cuda_cache=True
-  ```
-  - Expected Impact: 40% lower memory footprint
-
-#### 2) Architectural Improvements
-- **Parallel Processing** 🚀 HIGH PRIORITY
-  ```python
-  # Add concurrent processing capabilities
-  @concurrent.process
-  def process_segment_batch(segments: List[Segment]):
-      pass
-  ```
-  - Expected Impact: 2-3x overall speedup on multi-core systems
-
-- **Caching Layer** 💾 MEDIUM PRIORITY
-  ```python
-  # Add result caching for repeated operations
-  @cache(ttl=3600)
-  def generate_embeddings(text: str):
-      pass
-  ```
-  - Expected Impact: Instant results for repeated content
-
-#### 3) Optional Features Control
-```python
-# New ProcessingConfig fields
-class ProcessingConfig:
-    enable_similarity_analysis: bool = False  # Skip if not needed
-    enable_technical_terms: bool = True    # Language specific
-    minimal_mode: bool = False            # Skip non-essential processing
-```
-
-#### 4) Resource Usage Profiles
-| Profile | Description | Use Case | Time Impact |
-|---------|-------------|-----------|-------------|
-| draft | tiny model, no embeddings | Quick testing | 70% faster |
-| balanced | base model, basic features | Development | Standard |
-| quality | medium model, all features | Production | 20% slower |
-
-#### Implementation Priority:
-1. **⚡️ IMMEDIATE**: Add LLM batch processing
-2. **🔄 SHORT-TERM**: Implement processing profiles
-3. **🎯 MEDIUM-TERM**: Add parallel processing
-4. **📊 LONG-TERM**: Add caching layer
+See detailed plan in [CLEANUP_AND_OPTIMIZATION_PLAN.md](CLEANUP_AND_OPTIMIZATION_PLAN.md#-task-3-quality-profile-performance-issues)
 
 ### Risk and Rollout  
 **CURRENT STATUS**: ✅ Performance improvements completed and tested

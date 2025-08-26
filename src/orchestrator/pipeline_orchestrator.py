@@ -18,12 +18,12 @@ from shared.models import ProcessingConfig
 from shared.exceptions import PipelineException, StageException
 
 # Import all stage classes
-from stages.audio_extraction.code import AudioExtractionStage
-from stages.speaker_segmentation.code.stage_wrapper import SpeakerSegmentationStage  
-from stages.transcription.code import TranscriptionStage
-from stages.content_segmentation.code import ContentSegmentationStage
-from stages.content_evaluation.code import ContentEvaluationStage
-from stages.output_generation.code import OutputGenerationStage
+from stages._01_audio_extraction.code import AudioExtractionStage
+from stages._04_speaker_segmentation.code.stage_wrapper import SpeakerSegmentationStage  
+from stages._02_transcription.code import TranscriptionStage
+from stages._03_content_segmentation.code import ContentSegmentationStage
+from stages._05_content_evaluation.code import ContentEvaluationStage
+from stages._06_output_generation.code import OutputGenerationStage
 
 logger = logging.getLogger(__name__)
 
