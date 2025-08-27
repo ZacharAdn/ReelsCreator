@@ -10,6 +10,8 @@ from typing import List, Dict, Any, Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import re
+import signal
+from contextlib import contextmanager
 
 import sys
 from pathlib import Path
@@ -19,6 +21,24 @@ from shared.llm_manager import get_llm_manager
 from shared.progress_monitor import get_progress_monitor
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager 
+def generation_timeout(seconds: int):
+    """Context manager for timing out generation calls"""
+    def timeout_handler(signum, frame):
+        raise TimeoutError(f"Generation timed out after {seconds} seconds")
+    
+    # Set the signal handler
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+    finally:
+        # Restore the old handler and cancel the alarm
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 class ContentEvaluator:
@@ -41,6 +61,11 @@ class ContentEvaluator:
         self.enable_evaluation = enable_evaluation
         self.tokenizer = None
         self.model = None
+        
+        # Fallback tracking
+        self.llm_failure_count = 0
+        self.max_llm_failures = 3  # Switch to rule-based after 3 failures
+        self.has_switched_to_fallback = False
         
         if not enable_evaluation:
             logger.info("Content evaluation disabled for maximum speed")
@@ -89,18 +114,23 @@ class ContentEvaluator:
             device = next(self.model.parameters()).device
             inputs = {k: v.to(device) for k, v in inputs.items()}
             
-            # Generate response WITH attention mask
-            with torch.no_grad():
-                outputs = self.model.generate(
-                    input_ids=inputs['input_ids'],
-                    attention_mask=inputs['attention_mask'],
-                    max_new_tokens=100,
-                    do_sample=False,
-                    temperature=0.1,
-                    top_p=0.9,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id
-                )
+            # Generate response WITH attention mask and timeout protection
+            try:
+                with generation_timeout(60):  # 60-second timeout for single segment
+                    with torch.no_grad():
+                        outputs = self.model.generate(
+                            input_ids=inputs['input_ids'],
+                            attention_mask=inputs['attention_mask'],
+                            max_new_tokens=100,
+                            do_sample=False,  # Use greedy decoding for consistency
+                            pad_token_id=self.tokenizer.pad_token_id,
+                            eos_token_id=self.tokenizer.eos_token_id,
+                            repetition_penalty=1.1  # Prevent repetition loops that cause hangs
+                        )
+            except TimeoutError as e:
+                logger.error(f"Generation timed out: {e}")
+                self._handle_llm_failure()
+                return {"score": 0.5, "reasoning": "Generation timeout - fallback score"}
             
             # Decode response
             response_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -126,6 +156,7 @@ class ContentEvaluator:
                 
         except Exception as e:
             logger.error(f"Evaluation failed: {e}")
+            self._handle_llm_failure()
             return {"score": 0.5, "reasoning": f"Evaluation error: {str(e)}"}
     
     def _create_evaluation_prompt(self, text: str) -> str:
@@ -215,18 +246,25 @@ Example response:
             device = next(self.model.parameters()).device
             inputs = {k: v.to(device) for k, v in inputs.items()}
             
-            # Generate batch response
-            with torch.no_grad():
-                outputs = self.model.generate(
-                    input_ids=inputs['input_ids'],
-                    attention_mask=inputs['attention_mask'],
-                    max_new_tokens=200,  # Increased for batch responses
-                    do_sample=False,
-                    temperature=0.1,
-                    top_p=0.9,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id
-                )
+            # Generate batch response with timeout protection
+            try:
+                with generation_timeout(120):  # 2-minute timeout for batch processing
+                    with torch.no_grad():
+                        outputs = self.model.generate(
+                            input_ids=inputs['input_ids'],
+                            attention_mask=inputs['attention_mask'],
+                            max_new_tokens=200,  # Increased for batch responses
+                            do_sample=False,  # Use greedy decoding for consistency
+                            pad_token_id=self.tokenizer.pad_token_id,
+                            eos_token_id=self.tokenizer.eos_token_id,
+                            repetition_penalty=1.1  # Prevent repetition loops that cause hangs
+                        )
+            except TimeoutError as e:
+                logger.error(f"Batch generation timed out: {e}")
+                self._handle_llm_failure()
+                # Fallback to individual evaluation
+                logger.info("Falling back to individual segment evaluation due to batch timeout")
+                return [self.evaluate_segment(seg) for seg in segments]
             
             # Decode batch response
             response_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -281,6 +319,22 @@ Segments to evaluate:
         # Fallback: create default results
         return [{"score": 0.5, "reasoning": "Batch parsing failed"} for _ in range(expected_count)]
     
+    def _handle_llm_failure(self):
+        """Handle LLM failures and implement automatic fallback to rule-based evaluation"""
+        self.llm_failure_count += 1
+        logger.warning(f"LLM failure #{self.llm_failure_count}")
+        
+        if self.llm_failure_count >= self.max_llm_failures and not self.has_switched_to_fallback:
+            logger.error(f"🚨 LLM failed {self.llm_failure_count} times - switching to rule-based evaluation")
+            self.has_switched_to_fallback = True
+            self.use_rule_based = True
+    
+    def _should_use_llm(self) -> bool:
+        """Determine if LLM should be used or if fallback should be applied"""
+        return (self.enable_evaluation and 
+                not self.use_rule_based and 
+                not self.has_switched_to_fallback)
+    
     def evaluate_segments(self, segments: List[Segment]) -> List[Segment]:
         """
         Evaluate multiple segments using batch processing, rule-based, or no evaluation
@@ -299,12 +353,20 @@ Segments to evaluate:
             logger.info(f"⚡ Using fast dynamic scoring for {len(segments)} segments (evaluation disabled)")
             return self._evaluate_segments_fast_dynamic(segments)
         
-        # Handle rule-based evaluation (fast profile)
+        # Handle rule-based evaluation (fast profile OR fallback from LLM failures)
         if self.use_rule_based:
-            logger.info(f"🚀 Using rule-based evaluation for {len(segments)} segments")
+            if self.has_switched_to_fallback:
+                logger.warning(f"🔄 Using rule-based fallback for {len(segments)} segments (LLM failed)")
+            else:
+                logger.info(f"🚀 Using rule-based evaluation for {len(segments)} segments")
             return self._evaluate_segments_rule_based(segments)
         
-        # Handle LLM evaluation (balanced/quality profiles)
+        # Handle LLM evaluation (balanced/quality profiles) - check if should fallback
+        if not self._should_use_llm():
+            logger.warning(f"⚠️  Switching to rule-based evaluation due to LLM failures")
+            self.use_rule_based = True
+            return self.evaluate_segments(segments)  # Recursive call with rule-based mode
+        
         logger.info(f"🧠 Evaluating {len(segments)} segments using LLM batch processing (batch_size={self.batch_size})")
         
         # Process segments in batches with Rich progress monitoring
@@ -530,6 +592,9 @@ Segments to evaluate:
         score = base_variation
         reasoning_parts = []
         
+        # Enhanced multilingual text processing
+        text_processed = self._preprocess_multilingual_text(text)
+        
         # Length-based scoring (optimized for Reels 15-45s segments)
         word_count = len(text.split())
         if 20 <= word_count <= 100:  # Good length for Reels content  
@@ -545,30 +610,47 @@ Segments to evaluate:
             score -= 0.2
             reasoning_parts.append("Too long for short-form")
         
-        # Educational content indicators (enhanced)
+        # Multilingual educational content indicators (Hebrew + English + Transliterations)
         educational_keywords = [
+            # English originals
             "example", "demonstrate", "show", "explain", "understand", "learn",
             "concept", "important", "key", "remember", "notice", "see", "look",
-            "step", "process", "method", "technique", "approach", "solution"
+            "step", "process", "method", "technique", "approach", "solution",
+            # Hebrew equivalents
+            "דוגמה", "דוגמא", "להראות", "להסביר", "להבין", "ללמוד", "לומדים",
+            "מושג", "חשוב", "מפתח", "לזכור", "שימו לב", "תראו", "תסתכלו", "נראה",
+            "שלב", "תהליך", "שיטה", "טכניקה", "גישה", "פתרון", "פיתרון",
+            "מסביר", "מראה", "נלמד", "נבין", "הבנה", "למידה", "הוראה"
         ]
         
         technical_keywords = [
+            # English originals (kept for mixed content)
             "function", "method", "variable", "data", "code", "programming",
             "algorithm", "syntax", "error", "debug", "output", "input",
-            "class", "object", "array", "loop", "condition", "parameter"
+            "class", "object", "array", "loop", "condition", "parameter",
+            # Hebrew translations
+            "פונקציה", "פונקציות", "מתודה", "משתנה", "נתונים", "קוד", "קודים",
+            "תכנות", "אלגוריתם", "תחביר", "שגיאה", "שגיאות", "פלט", "קלט",
+            "מחלקה", "אובייקט", "מערך", "לולאה", "תנאי", "פרמטר",
+            # Common transliterations in Hebrew tech education
+            "פאנקשן", "מתוד", "ווריאבל", "דאטה", "פרוגרמינג", "אלגוריטם",
+            "אריי", "לופ", "לופים", "אובג'קט", "קלאס", "דיבאג", "דיבאגינג"
         ]
         
         engagement_keywords = [
+            # English originals
             "amazing", "cool", "interesting", "powerful", "simple", "easy",
-            "quick", "fast", "effective", "useful", "practical", "tip", "trick"
+            "quick", "fast", "effective", "useful", "practical", "tip", "trick",
+            # Hebrew equivalents
+            "מדהים", "מגניב", "מעניין", "חזק", "פשוט", "קל", "פשוטה", "קלה",
+            "מהיר", "יעיל", "שימושי", "פרקטי", "טיפ", "טיפים", "טריק", "טריקים",
+            "נהדר", "יפה", "מושלם", "מעולה", "בקלות", "במהירות", "ביעילות"
         ]
         
-        text_lower = text.lower()
-        
-        # Educational content scoring (more nuanced)
-        edu_matches = sum(1 for keyword in educational_keywords if keyword in text_lower)
-        tech_matches = sum(1 for keyword in technical_keywords if keyword in text_lower)
-        engagement_matches = sum(1 for keyword in engagement_keywords if keyword in text_lower)
+        # Educational content scoring with improved multilingual matching
+        edu_matches = self._count_multilingual_matches(educational_keywords, text_processed)
+        tech_matches = self._count_multilingual_matches(technical_keywords, text_processed)  
+        engagement_matches = self._count_multilingual_matches(engagement_keywords, text_processed)
         
         if edu_matches >= 3:
             score += 0.2
@@ -595,9 +677,16 @@ Segments to evaluate:
             score += 0.1
             reasoning_parts.append("Engaging language")
         
-        # Question indicators (engagement)
+        # Question indicators (engagement) - Multilingual
         question_count = text.count("?")
-        question_words = sum(1 for q in ["what", "how", "why", "when", "where"] if q in text_lower)
+        # English + Hebrew question words
+        multilingual_question_words = [
+            # English originals
+            "what", "how", "why", "when", "where",
+            # Hebrew equivalents
+            "מה", "איך", "למה", "מתי", "איפה", "מדוע", "כיצד", "באיזה", "איזה"
+        ]
+        question_words = self._count_multilingual_matches(multilingual_question_words, text_processed)
         
         if question_count >= 2 or question_words >= 2:
             score += 0.15
@@ -606,9 +695,15 @@ Segments to evaluate:
             score += 0.1
             reasoning_parts.append("Engaging questions")
         
-        # Practical demonstration indicators
-        practical_keywords = ["result", "output", "works", "example", "demo", "practice", "try", "test", "run"]
-        practical_matches = sum(1 for keyword in practical_keywords if keyword in text_lower)
+        # Practical demonstration indicators - Multilingual
+        practical_keywords = [
+            # English originals
+            "result", "output", "works", "example", "demo", "practice", "try", "test", "run",
+            # Hebrew equivalents
+            "תוצאה", "תוצאות", "עובד", "עובדת", "דוגמה", "דמו", "תרגול", "נסה", "בדיקה", "להריץ",
+            "נריץ", "נבדוק", "נתרגל", "התוצאה", "הפלט", "יוצא", "מתקבל", "רואים"
+        ]
+        practical_matches = self._count_multilingual_matches(practical_keywords, text_processed)
         
         if practical_matches >= 2:
             score += 0.15
@@ -638,6 +733,66 @@ Segments to evaluate:
             reasoning = "Rule-based: Standard content"
         
         return {"score": score, "reasoning": reasoning}
+    
+    def _preprocess_multilingual_text(self, text: str) -> str:
+        """
+        Preprocess text for better multilingual keyword matching
+        
+        Args:
+            text: Raw text to preprocess
+            
+        Returns:
+            Processed text optimized for keyword matching
+        """
+        import re
+        import unicodedata
+        
+        # Convert to lowercase for matching
+        text_lower = text.lower()
+        
+        # Remove Hebrew vowel marks (nikud) that might interfere with matching
+        # Hebrew vowel marks are in the range U+0591 to U+05C7
+        text_lower = re.sub(r'[\u0591-\u05C7]', '', text_lower)
+        
+        # Normalize Unicode characters (handle different Hebrew encodings)
+        text_lower = unicodedata.normalize('NFKC', text_lower)
+        
+        # Add spaces around punctuation to improve word boundary detection
+        text_lower = re.sub(r'([.!?,:;])', r' \1 ', text_lower)
+        
+        # Normalize multiple whitespaces
+        text_lower = re.sub(r'\s+', ' ', text_lower).strip()
+        
+        return text_lower
+    
+    def _count_multilingual_matches(self, keywords: list, text_processed: str) -> int:
+        """
+        Count keyword matches in multilingual text with improved matching logic
+        
+        Args:
+            keywords: List of keywords to search for
+            text_processed: Preprocessed text to search in
+            
+        Returns:
+            Number of matching keywords found
+        """
+        matches = 0
+        
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            
+            # Check for exact word matches (with word boundaries for Latin script)
+            if keyword_lower.isascii():
+                # English keywords: use word boundaries
+                import re
+                if re.search(r'\b' + re.escape(keyword_lower) + r'\b', text_processed):
+                    matches += 1
+            else:
+                # Hebrew keywords: check for substring presence (Hebrew doesn't have clear word boundaries)
+                if keyword_lower in text_processed:
+                    matches += 1
+        
+        return matches
 
 
 class MultiCriteriaEvaluator:

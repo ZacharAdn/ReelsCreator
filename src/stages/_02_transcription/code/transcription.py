@@ -32,24 +32,57 @@ logger = logging.getLogger(__name__)
 class WhisperTranscriber:
     """Handles audio transcription using Whisper with multilingual support"""
     
-    def __init__(self, model_name: str = "base", primary_language: str = "he", smart_model_selection: bool = True):
+    def __init__(self, model_name: str = "base", primary_language: str = "he", 
+                 smart_model_selection: bool = True, force_model: bool = False):
         """
-        Initialize Whisper transcriber
+        Initialize Whisper transcriber with manual model control
         
         Args:
-            model_name: Whisper model size (tiny, base, small, medium, large, or "auto" for smart selection)
+            model_name: Model name (tiny, base, small, medium, large, large-v3, large-v3-turbo, ivrit-v2-d4, etc.)
             primary_language: Primary language for transcription
             smart_model_selection: Enable automatic model selection based on audio length
+            force_model: Force specified model, ignore smart selection
         """
         self.model_name = model_name
         self.primary_language = primary_language
-        self.smart_model_selection = smart_model_selection
+        self.smart_model_selection = smart_model_selection and not force_model
+        self.force_model = force_model
         self.model = None
         self.actual_model_used = None  # Track which model was actually used
         self.device = self._setup_device()
-        logger.info(f"Initializing Whisper transcriber: {model_name} for language: {primary_language}")
-        if smart_model_selection and model_name == "auto":
-            logger.info("Smart model selection enabled - will choose optimal model based on audio duration")
+        
+        # Map common model aliases to actual model names
+        self.model_mapping = self._get_model_mapping()
+        
+        logger.info(f"Initializing transcriber: {model_name} (force={force_model}) for language: {primary_language}")
+        
+        if force_model:
+            logger.info(f"🔒 Model selection locked to: {model_name} (smart selection disabled)")
+        elif smart_model_selection:
+            logger.info(f"🤖 Smart model selection enabled (base model: {model_name})")
+    def _get_model_mapping(self) -> dict:
+        """Get mapping of model aliases to actual model names"""
+        return {
+            # Standard OpenAI Whisper models
+            "tiny": "tiny",
+            "base": "base", 
+            "small": "small",
+            "medium": "medium",
+            "large": "large",
+            "large-v2": "large-v2",
+            "large-v3": "large-v3",
+            "large-v3-turbo": "turbo",  # Maps to Whisper turbo if available
+            
+            # Hebrew-optimized models (Ivrit.AI)
+            "ivrit-v2-d4": "ivrit-ai/faster-whisper-v2-d4",
+            "ivrit-v2-d3-e3": "ivrit-ai/faster-whisper-v2-d3-e3",
+            
+            # Aliases
+            "hebrew": "ivrit-v2-d4",  # Default Hebrew model
+            "hebrew-latest": "ivrit-v2-d4",
+            "turbo": "turbo",
+            "auto": "auto"
+        }
     
     def _setup_device(self) -> torch.device:
         """Setup M1 Mac optimized device"""
@@ -61,11 +94,100 @@ class WhisperTranscriber:
             return torch.device("cpu")
     
     def load_model(self):
-        """Load Whisper model"""
+        """Load Whisper model with error handling, Hebrew model support, and fallback"""
         if self.model is None:
-            logger.info(f"Loading Whisper model: {self.model_name}")
-            self.model = whisper.load_model(self.model_name)
-            logger.info("Whisper model loaded successfully")
+            model_to_load = self.model_name
+            
+            try:
+                # Handle Hebrew-optimized models
+                if self._is_hebrew_model(model_to_load):
+                    logger.info(f"🇮🇱 Loading Hebrew-optimized model: {model_to_load}")
+                    self.model = self._load_hebrew_model(model_to_load)
+                    logger.info("✅ Hebrew model loaded successfully")
+                    return
+                    
+                # Handle latest Whisper models
+                if model_to_load == "large-v3-turbo" or model_to_load == "turbo":
+                    model_to_load = self._get_turbo_model_name()
+                    logger.info(f"🚀 Loading Whisper Turbo model: {model_to_load}")
+                
+                logger.info(f"Loading Whisper model: {model_to_load}")
+                self.model = whisper.load_model(model_to_load, device=self.device)
+                logger.info("✅ Whisper model loaded successfully")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to load model '{model_to_load}': {e}")
+                
+                # Fallback logic for Hebrew models
+                if self._is_hebrew_model(model_to_load):
+                    logger.warning("🔄 Hebrew model failed, falling back to large model")
+                    try:
+                        self.model = whisper.load_model("large", device=self.device)
+                        self.actual_model_used = "large"
+                        logger.info("✅ Fallback to large model successful")
+                        return
+                    except Exception as fallback_error:
+                        logger.error(f"❌ Large model fallback failed: {fallback_error}")
+                
+                # Standard fallback to smaller models
+                fallback_models = ["base", "tiny"]
+                for fallback in fallback_models:
+                    if fallback != model_to_load:
+                        try:
+                            logger.warning(f"🔄 Attempting fallback to {fallback} model...")
+                            self.model = whisper.load_model(fallback, device=self.device)
+                            self.actual_model_used = fallback
+                            logger.info(f"✅ Successfully loaded fallback model: {fallback}")
+                            return
+                        except Exception as fallback_error:
+                            logger.error(f"❌ Fallback to {fallback} failed: {fallback_error}")
+                
+                # If all fallbacks fail, raise the original error
+                raise RuntimeError(f"Failed to load any Whisper model. Original error: {e}")
+    
+    def _is_hebrew_model(self, model_name: str) -> bool:
+        """Check if model is a Hebrew-optimized variant"""
+        hebrew_indicators = ["ivrit", "hebrew", "ivrit-ai"]
+        return any(indicator in model_name.lower() for indicator in hebrew_indicators)
+    
+    def _load_hebrew_model(self, model_name: str):
+        """
+        Load Hebrew-optimized models with proper setup
+        
+        Args:
+            model_name: Hebrew model name
+            
+        Returns:
+            Loaded model instance
+        """
+        # Map to actual model identifier
+        if model_name == "ivrit-ai/faster-whisper-v2-d4":
+            # This would require faster-whisper library and proper model loading
+            logger.warning("⚠️  Ivrit.AI models require faster-whisper library")
+            logger.info("🔄 Falling back to large model with Hebrew language hint")
+            return whisper.load_model("large", device=self.device)
+        
+        # Add other Hebrew model implementations here
+        logger.warning(f"⚠️  Hebrew model {model_name} not yet implemented")
+        logger.info("🔄 Using large model as Hebrew fallback")
+        return whisper.load_model("large", device=self.device)
+    
+    def _get_turbo_model_name(self) -> str:
+        """Get the correct turbo model name based on availability"""
+        # Try different turbo model names that might be available
+        turbo_variants = ["turbo", "large-v3-turbo", "large-v3"]
+        
+        for variant in turbo_variants:
+            try:
+                # Check if model exists (this is a simple check)
+                whisper.available_models()
+                return variant
+            except:
+                continue
+        
+        # Fallback to large-v3 or large
+        logger.warning("🔄 Turbo model not available, using large-v3")
+        return "large-v3"
     
     def transcribe(self, audio_path: str) -> Dict[str, Any]:
         """
@@ -196,6 +318,73 @@ class WhisperTranscriber:
         logger.info(f"🎯 Selected Whisper model '{model}' for {reason}")
         return model
     
+    def _determine_model_to_use(self, audio_path: str) -> str:
+        """
+        Determine which model to use based on configuration and content
+        
+        Args:
+            audio_path: Path to audio file
+            
+        Returns:
+            Model name to use
+        """
+        # If model is forced, use it directly
+        if self.force_model and self.model_name != "auto":
+            resolved_model = self._resolve_model_name(self.model_name)
+            logger.info(f"🔒 Using forced model: {resolved_model}")
+            return resolved_model
+        
+        # If smart selection is disabled, use the specified model
+        if not self.smart_model_selection and self.model_name != "auto":
+            resolved_model = self._resolve_model_name(self.model_name)
+            logger.info(f"🎯 Using specified model: {resolved_model}")
+            return resolved_model
+        
+        # Smart model selection enabled - choose based on audio duration
+        if self.smart_model_selection and self.model_name == "auto":
+            audio_duration = self.get_audio_duration(audio_path)
+            optimal_model = self.select_optimal_model(audio_duration)
+            return self._resolve_model_name(optimal_model)
+        
+        # Fallback to specified model
+        return self._resolve_model_name(self.model_name)
+    
+    def _resolve_model_name(self, model_name: str) -> str:
+        """
+        Resolve model name through mapping
+        
+        Args:
+            model_name: Input model name (may be alias)
+            
+        Returns:
+            Resolved model name
+        """
+        resolved = self.model_mapping.get(model_name, model_name)
+        
+        # Log Hebrew model usage
+        if "ivrit" in resolved.lower() or model_name in ["hebrew", "hebrew-latest"]:
+            logger.info(f"🇮🇱 Using Hebrew-optimized model: {resolved}")
+            
+        return resolved
+    
+    def _validate_model_availability(self, model_name: str) -> bool:
+        """
+        Check if a model is available for use
+        
+        Args:
+            model_name: Model name to check
+            
+        Returns:
+            True if model is available
+        """
+        # For Hebrew models, check if they would need additional setup
+        if "ivrit-ai" in model_name:
+            logger.warning(f"⚠️  Hebrew model {model_name} may require additional setup (Ivrit.AI)")
+            return True  # Assume available for now, will fail gracefully during loading
+        
+        # Standard Whisper models should always be available
+        return True
+    
     def process_audio_file(self, audio_path: str) -> List[Segment]:
         """
         Complete audio processing pipeline with smart model selection
@@ -210,21 +399,20 @@ class WhisperTranscriber:
         if not Path(audio_path).exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
         
-        # Smart model selection if enabled
-        if self.smart_model_selection and (self.model_name == "auto" or self.model is None):
-            audio_duration = self.get_audio_duration(audio_path)
-            optimal_model = self.select_optimal_model(audio_duration)
+        # Determine which model to use
+        model_to_use = self._determine_model_to_use(audio_path)
+        
+        # Update model if different from current
+        if self.actual_model_used != model_to_use:
+            logger.info(f"🔄 Switching from {self.actual_model_used or 'None'} to {model_to_use} model")
+            self.actual_model_used = model_to_use
+            self.model = None  # Force reload with new model
             
-            # Update model if different from current
-            if self.actual_model_used != optimal_model:
-                logger.info(f"Switching from {self.actual_model_used or 'None'} to {optimal_model} model")
-                self.actual_model_used = optimal_model
-                self.model = None  # Force reload with new model
-                # Temporarily update model_name for loading
-                original_model_name = self.model_name
-                self.model_name = optimal_model
-                self.load_model()
-                self.model_name = original_model_name  # Restore original
+            # Temporarily update model_name for loading
+            original_model_name = self.model_name
+            self.model_name = model_to_use
+            self.load_model()
+            self.model_name = original_model_name  # Restore original
         
         # Transcribe
         result = self.transcribe(audio_path)

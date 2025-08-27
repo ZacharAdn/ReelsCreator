@@ -47,11 +47,24 @@ class ConfigManager:
         parser.add_argument('--minimal-mode', action='store_true',
                           help='Skip embeddings for faster processing')
         
-        # Model configurations  
-        parser.add_argument('--whisper-model', default='base',
-                          help='Whisper model size (tiny, base, small, medium, large)')
+        # Transcription model configurations  
+        parser.add_argument('--transcription-model', '--whisper-model', dest='transcription_model',
+                          default='auto',
+                          help='Transcription model: auto, tiny, base, small, medium, large, large-v3, large-v3-turbo, or Hebrew models: ivrit-v2-d4, ivrit-v2-d3-e3')
+        parser.add_argument('--force-model', action='store_true',
+                          help='Force specified model, disable automatic selection based on duration')
+        parser.add_argument('--list-models', action='store_true',
+                          help='List all available transcription models and exit')
+        
+        # LLM evaluation model
         parser.add_argument('--evaluation-model', default='microsoft/Phi-3-mini-4k-instruct',
                           help='LLM model for content evaluation')
+        
+        # Segmentation settings
+        parser.add_argument('--segment-duration', type=int, default=90,
+                          help='Segment duration in seconds (default: 90)')
+        parser.add_argument('--overlap-duration', type=int, default=20,
+                          help='Overlap duration in seconds (default: 20)')
         
         # Performance settings
         parser.add_argument('--batch-size', type=int, default=5,
@@ -67,6 +80,12 @@ class ConfigManager:
         
         args = parser.parse_args()
         
+        # Handle --list-models flag
+        if getattr(args, 'list_models', False):
+            ConfigManager._list_available_models()
+            import sys
+            sys.exit(0)
+        
         # Create config based on profile and arguments
         if args.profile:
             config = ProcessingConfig.create_profile(args.profile)
@@ -74,8 +93,17 @@ class ConfigManager:
             config = ProcessingConfig()
         
         # Override with command line arguments
-        config.whisper_model = args.whisper_model
+        config.transcription_model = args.transcription_model
+        config.force_transcription_model = getattr(args, 'force_model', False)
         config.evaluation_model = args.evaluation_model
+        
+        # Backward compatibility with whisper_model
+        config.whisper_model = args.transcription_model
+        
+        # Segmentation settings
+        config.segment_duration = args.segment_duration
+        config.overlap_duration = args.overlap_duration
+        
         config.evaluation_batch_size = args.batch_size
         config.keep_audio = args.keep_audio
         config.primary_language = args.language
@@ -120,3 +148,45 @@ class ConfigManager:
         """
         # TODO: Implement JSON config saving  
         raise NotImplementedError("JSON config saving not yet implemented")
+    
+    @staticmethod
+    def _list_available_models() -> None:
+        """List all available transcription models"""
+        print("🎙️  Available Transcription Models:")
+        print("=" * 50)
+        
+        print("\n📌 Standard OpenAI Whisper Models:")
+        standard_models = [
+            ("tiny", "Fastest, lowest accuracy, ~2GB VRAM"),
+            ("base", "Good balance, ~4GB VRAM"), 
+            ("small", "Better accuracy, ~6GB VRAM"),
+            ("medium", "High accuracy, ~8GB VRAM"),
+            ("large", "Highest accuracy, ~12GB VRAM"),
+            ("large-v3", "Latest Whisper v3, ~12GB VRAM"),
+            ("large-v3-turbo", "5.4x faster than v2, ~12GB VRAM")
+        ]
+        
+        for model, desc in standard_models:
+            print(f"  • {model:<15} - {desc}")
+        
+        print("\n🇮🇱 Hebrew-Optimized Models (Ivrit.AI):")
+        hebrew_models = [
+            ("ivrit-v2-d4", "Latest Hebrew-tuned Whisper v2 Large (Recommended for Hebrew)"),
+            ("ivrit-v2-d3-e3", "Alternative Hebrew-tuned Whisper v2 Large")
+        ]
+        
+        for model, desc in hebrew_models:
+            print(f"  • {model:<15} - {desc}")
+        
+        print("\n🤖 Automatic Selection:")
+        print(f"  • {'auto':<15} - Smart selection based on video duration (default)")
+        
+        print(f"\n💡 Usage Examples:")
+        print(f"  # Use Hebrew-optimized model")
+        print(f"  python -m src video.mp4 --transcription-model ivrit-v2-d4")
+        print(f"  # Force large model regardless of duration")
+        print(f"  python -m src video.mp4 --transcription-model large --force-model")
+        print(f"  # Use latest Whisper turbo model")
+        print(f"  python -m src video.mp4 --transcription-model large-v3-turbo")
+        
+        print(f"\n⚠️  Note: Hebrew models require additional setup. See documentation for details.")

@@ -51,10 +51,13 @@ class Segment:
 @dataclass
 class ProcessingConfig:
     """Configuration for content processing"""
-    segment_duration: int = 45
-    overlap_duration: int = 10
+    segment_duration: int = 90  # Updated to 90 seconds for longer segments
+    overlap_duration: int = 20  # Updated to 20 seconds overlap
     min_score_threshold: float = 0.7
-    whisper_model: str = "base"
+    # Transcription model settings
+    whisper_model: str = "base"  # Backward compatibility
+    transcription_model: str = "auto"  # New unified model field
+    force_transcription_model: bool = False  # Disable smart selection
     embedding_model: str = "all-MiniLM-L6-v2"
     include_embeddings_in_json: bool = False
     keep_audio: bool = False
@@ -105,6 +108,7 @@ class ProcessingConfig:
         if profile == "draft":
             return cls(
                 whisper_model="tiny",
+                transcription_model="tiny",
                 min_score_threshold=0.5,  # Lower threshold since no LLM evaluation
                 embedding_batch_size=64,
                 evaluation_batch_size=8,
@@ -119,6 +123,7 @@ class ProcessingConfig:
         elif profile == "fast":
             return cls(
                 whisper_model="tiny",
+                transcription_model="tiny",
                 min_score_threshold=0.6,
                 embedding_batch_size=64,
                 evaluation_batch_size=8,
@@ -134,6 +139,7 @@ class ProcessingConfig:
         elif profile == "quality":
             return cls(
                 whisper_model="auto",  # Use smart model selection
+                transcription_model="auto",  # Use smart model selection
                 min_score_threshold=0.8,
                 embedding_batch_size=16,
                 evaluation_batch_size=3,
@@ -147,6 +153,7 @@ class ProcessingConfig:
         else:  # balanced
             return cls(
                 whisper_model="auto",  # Use smart model selection
+                transcription_model="auto",  # Use smart model selection
                 min_score_threshold=0.7,
                 embedding_batch_size=32,
                 evaluation_batch_size=5,

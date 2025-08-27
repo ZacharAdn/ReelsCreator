@@ -221,6 +221,41 @@ class OutputGenerationStage(BaseStage):
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
         
+        # Configuration and command line
+        lines.append("⚙️ CONFIGURATION USED")
+        lines.append(f"Profile: {getattr(self.config, 'processing_profile', 'balanced')}")
+        lines.append(f"Transcription Model: {getattr(self.config, 'transcription_model', 'auto')} (actual: {getattr(self.config, 'actual_model_used', 'N/A')})")
+        lines.append(f"Force Model: {'Yes' if getattr(self.config, 'force_transcription_model', False) else 'No'}")
+        lines.append(f"Segment Duration: {getattr(self.config, 'segment_duration', 45)}s")
+        lines.append(f"Overlap Duration: {getattr(self.config, 'overlap_duration', 10)}s")
+        lines.append(f"Language: {getattr(self.config, 'primary_language', 'he')}")
+        lines.append(f"Evaluation Model: {getattr(self.config, 'evaluation_model', 'N/A')}")
+        lines.append(f"Min Score Threshold: {getattr(self.config, 'min_score_threshold', 0.7)}")
+        
+        # Reconstruct command line
+        command_parts = ["python -m src"]
+        if hasattr(self.config, 'video_path'):
+            command_parts.append(getattr(self.config, 'video_path', 'video.mp4'))
+        
+        # Add key arguments
+        if getattr(self.config, 'processing_profile', 'balanced') != 'balanced':
+            command_parts.append(f"--profile {self.config.processing_profile}")
+        if getattr(self.config, 'transcription_model', 'auto') != 'auto':
+            command_parts.append(f"--transcription-model {self.config.transcription_model}")
+        if getattr(self.config, 'force_transcription_model', False):
+            command_parts.append("--force-model")
+        if getattr(self.config, 'segment_duration', 45) != 45:
+            command_parts.append(f"--segment-duration {self.config.segment_duration}")
+        if getattr(self.config, 'overlap_duration', 10) != 10:
+            command_parts.append(f"--overlap-duration {self.config.overlap_duration}")
+        if getattr(self.config, 'primary_language', 'he') != 'he':
+            command_parts.append(f"--language {self.config.primary_language}")
+        
+        lines.append("")
+        lines.append("🖥️ EQUIVALENT COMMAND LINE")
+        lines.append(" ".join(command_parts))
+        lines.append("")
+        
         # Basic info
         lines.append("📹 INPUT INFORMATION")
         lines.append(f"Audio File: {input_data.get('audio_path', 'N/A')}")
