@@ -5,6 +5,9 @@ Main pipeline orchestrator that coordinates all stages
 import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
+import json
+import os
+from datetime import datetime
 
 import sys
 from pathlib import Path
@@ -47,6 +50,11 @@ class PipelineOrchestrator:
         
         logger.info(f"Initialized PipelineOrchestrator with profile: {config.processing_profile}")
         
+        # Initialize stage output directory if needed
+        self.stage_output_path = None
+        if self.config.save_stage_outputs:
+            self.stage_output_path = self._create_stage_output_directory()
+        
         # Initialize stages based on configuration
         self._initialize_stages()
     
@@ -75,6 +83,59 @@ class PipelineOrchestrator:
         
         logger.info(f"Initialized {len(self.stages)} pipeline stages")
     
+    def _create_stage_output_directory(self) -> Path:
+        """Create timestamped directory for stage outputs"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = Path(self.config.stage_output_dir) / f"run_{timestamp}"
+        output_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created stage output directory: {output_path}")
+        return output_path
+    
+    def _save_stage_output(self, stage_name: str, stage_data: Dict[str, Any], stage_number: int) -> None:
+        """
+        Save stage output to individual file
+        
+        Args:
+            stage_name: Name of the stage
+            stage_data: Data from the stage
+            stage_number: Stage number for file naming
+        """
+        if not self.stage_output_path:
+            return
+            
+        # Create filename with stage number and name
+        filename = f"{stage_number:02d}_{stage_name}.json"
+        filepath = self.stage_output_path / filename
+        
+        try:
+            # Convert data to JSON-serializable format
+            serializable_data = self._make_json_serializable(stage_data)
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(serializable_data, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Saved {stage_name} output to: {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to save {stage_name} output: {e}")
+    
+    def _make_json_serializable(self, data: Any) -> Any:
+        """Convert data to JSON-serializable format"""
+        if hasattr(data, 'to_dict'):
+            return data.to_dict()
+        elif isinstance(data, dict):
+            return {k: self._make_json_serializable(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._make_json_serializable(item) for item in data]
+        elif hasattr(data, '__dict__'):
+            return {k: self._make_json_serializable(v) for k, v in data.__dict__.items()}
+        else:
+            # For basic types (str, int, float, bool, None)
+            try:
+                json.dumps(data)
+                return data
+            except (TypeError, ValueError):
+                return str(data)
+    
     def process_video(self, video_path: str) -> Dict[str, Any]:
         """
         Process a video through the entire pipeline
@@ -94,6 +155,7 @@ class PipelineOrchestrator:
             pipeline_data = self.stages['audio_extraction'].run(video_path)
             self.performance_monitor.add_stage_metrics(self.stages['audio_extraction'].get_metrics())
             self.results['audio_extraction'] = pipeline_data
+            self._save_stage_output('audio_extraction', pipeline_data, 1)
             
             # Stage 2: Speaker Segmentation (if enabled)
             if 'speaker_segmentation' in self.stages:
@@ -101,6 +163,7 @@ class PipelineOrchestrator:
                 speaker_data = self.stages['speaker_segmentation'].run(pipeline_data)
                 self.performance_monitor.add_stage_metrics(self.stages['speaker_segmentation'].get_metrics())
                 self.results['speaker_segmentation'] = speaker_data
+                self._save_stage_output('speaker_segmentation', speaker_data, 2)
                 # Update pipeline data
                 pipeline_data.update(speaker_data)
             
@@ -109,6 +172,7 @@ class PipelineOrchestrator:
             transcription_data = self.stages['transcription'].run(pipeline_data)
             self.performance_monitor.add_stage_metrics(self.stages['transcription'].get_metrics())
             self.results['transcription'] = transcription_data
+            self._save_stage_output('transcription', transcription_data, 3)
             # Update pipeline data
             pipeline_data.update(transcription_data)
             
@@ -117,6 +181,7 @@ class PipelineOrchestrator:
             segmentation_data = self.stages['content_segmentation'].run(pipeline_data)
             self.performance_monitor.add_stage_metrics(self.stages['content_segmentation'].get_metrics())
             self.results['content_segmentation'] = segmentation_data
+            self._save_stage_output('content_segmentation', segmentation_data, 4)
             # Update pipeline data
             pipeline_data.update(segmentation_data)
             
@@ -126,6 +191,7 @@ class PipelineOrchestrator:
                 evaluation_data = self.stages['content_evaluation'].run(pipeline_data)
                 self.performance_monitor.add_stage_metrics(self.stages['content_evaluation'].get_metrics())
                 self.results['content_evaluation'] = evaluation_data
+                self._save_stage_output('content_evaluation', evaluation_data, 5)
                 # Update pipeline data
                 pipeline_data.update(evaluation_data)
             
@@ -134,6 +200,7 @@ class PipelineOrchestrator:
             output_data = self.stages['output_generation'].run(pipeline_data)
             self.performance_monitor.add_stage_metrics(self.stages['output_generation'].get_metrics())
             self.results['output_generation'] = output_data
+            self._save_stage_output('output_generation', output_data, 6)
             
             # Finalize performance monitoring
             total_duration = pipeline_data.get('duration', 0)

@@ -80,6 +80,11 @@ class ProcessingConfig:
     enable_content_evaluation: bool = True   # Disable for maximum speed
     use_rule_based_scoring: bool = False     # Fast rule-based scoring instead of LLM
     confidence_based_evaluation: bool = False # Only evaluate uncertain segments
+    # Device control
+    force_cpu: bool = False                  # Force CPU processing, disable MPS/CUDA
+    # Stage output control
+    save_stage_outputs: bool = False         # Save intermediate outputs from each stage
+    stage_output_dir: str = "stage_outputs"  # Directory for stage outputs
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary"""

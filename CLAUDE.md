@@ -46,6 +46,18 @@ python -m src --list-models
 
 # Advanced Hebrew processing
 python -m src video.mp4 --transcription-model hebrew --language he --enable-speaker-detection
+
+# 🔧 Fix MPS backend issues on M1 Mac (force CPU processing)
+python -m src path/to/video.mp4 --force-cpu
+
+# Hebrew model with CPU fallback (recommended if MPS fails)
+python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4 --force-cpu
+
+# 📁 Save intermediate outputs from each pipeline stage
+python -m src path/to/video.mp4 --save-stage-outputs
+
+# Custom stage output directory
+python -m src path/to/video.mp4 --save-stage-outputs --stage-output-dir my_debug_outputs
 ```
 
 ### Testing and Development
@@ -114,11 +126,17 @@ This is a **multilingual educational content extraction pipeline** specifically 
    - Supports mixed Hebrew-English content (common in tech tutorials)
    - Hebrew scoring now achieves 85%+ parity with English equivalents
 
+4. **M1 Mac MPS Backend Issues** ✅ FIXED:
+   - Added `--force-cpu` flag to bypass MPS/CUDA acceleration
+   - Implemented automatic CPU fallback when MPS sparse tensor operations fail
+   - Enhanced device compatibility detection with error-specific handling
+   - Fixed "aten::_sparse_coo_tensor_with_dims_and_tensors" MPS backend errors
+
 ### Remaining Issues
 
-4. **Quality Profile Hangs**: Some edge cases may still hang during model loading. **Use `--profile balanced` for production.**
+5. **Quality Profile Hangs**: Some edge cases may still hang during model loading. **Use `--profile balanced` for production.**
 
-5. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.8).
+6. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.8).
 
 ### Troubleshooting LLM Hangs
 
@@ -128,6 +146,17 @@ If you encounter hanging during Content Evaluation stage:
 2. **Use draft profile**: `python -m src video.mp4 --profile draft` (bypasses LLM entirely)
 3. **Check memory usage**: System needs <80% memory usage for stable operation
 4. **Try balanced profile**: `python -m src video.mp4 --profile balanced` (automatic fallback enabled)
+
+### Troubleshooting MPS Backend Issues (M1 Mac)
+
+If you encounter MPS backend errors like "Could not run 'aten::_sparse_coo_tensor_with_dims_and_tensors'":
+
+1. **Use CPU processing**: `python -m src video.mp4 --force-cpu` (forces all models to use CPU)
+2. **Automatic fallback**: The system now automatically detects MPS errors and falls back to CPU
+3. **Hebrew models with CPU**: `python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-cpu`
+4. **Check PyTorch MPS**: Verify PyTorch MPS installation with `python -c "import torch; print(torch.backends.mps.is_available())"`
+
+**Root cause**: Whisper models use sparse tensor operations that aren't fully compatible with the current PyTorch MPS backend on M1 Macs.
 
 ---
 

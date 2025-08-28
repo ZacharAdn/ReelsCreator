@@ -71,6 +71,12 @@ class ConfigManager:
                           help='Batch size for evaluation')
         parser.add_argument('--keep-audio', action='store_true',
                           help='Keep extracted audio files')
+        parser.add_argument('--force-cpu', action='store_true',
+                          help='Force CPU processing, disable MPS/CUDA acceleration (fixes MPS backend issues on M1 Mac)')
+        parser.add_argument('--save-stage-outputs', action='store_true',
+                          help='Save intermediate outputs from each pipeline stage to separate files')
+        parser.add_argument('--stage-output-dir', default='stage_outputs',
+                          help='Directory name for stage outputs (default: stage_outputs)')
         
         # Language settings
         parser.add_argument('--language', default='he',
@@ -106,6 +112,9 @@ class ConfigManager:
         
         config.evaluation_batch_size = args.batch_size
         config.keep_audio = args.keep_audio
+        config.force_cpu = getattr(args, 'force_cpu', False)
+        config.save_stage_outputs = getattr(args, 'save_stage_outputs', False)
+        config.stage_output_dir = getattr(args, 'stage_output_dir', 'stage_outputs')
         config.primary_language = args.language
         config.technical_language = args.technical_language
         

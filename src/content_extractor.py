@@ -34,9 +34,14 @@ class ContentExtractor:
         
         # Initialize components
         self.video_processor = VideoProcessor()
+        # Use transcription_model if available, fallback to whisper_model for compatibility
+        transcription_model = getattr(self.config, 'transcription_model', self.config.whisper_model)
         self.transcriber = WhisperTranscriber(
-            self.config.whisper_model, 
-            self.config.primary_language
+            model_name=transcription_model,
+            primary_language=self.config.primary_language,
+            smart_model_selection=not getattr(self.config, 'force_transcription_model', False),
+            force_model=getattr(self.config, 'force_transcription_model', False),
+            force_cpu=getattr(self.config, 'force_cpu', False)
         )
         self.segment_processor = SegmentProcessor(
             self.config.segment_duration,

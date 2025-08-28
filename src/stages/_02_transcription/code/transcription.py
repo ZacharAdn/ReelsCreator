@@ -33,7 +33,8 @@ class WhisperTranscriber:
     """Handles audio transcription using Whisper with multilingual support"""
     
     def __init__(self, model_name: str = "base", primary_language: str = "he", 
-                 smart_model_selection: bool = True, force_model: bool = False):
+                 smart_model_selection: bool = True, force_model: bool = False,
+                 force_cpu: bool = False):
         """
         Initialize Whisper transcriber with manual model control
         
@@ -42,11 +43,13 @@ class WhisperTranscriber:
             primary_language: Primary language for transcription
             smart_model_selection: Enable automatic model selection based on audio length
             force_model: Force specified model, ignore smart selection
+            force_cpu: Force CPU processing, disable MPS/CUDA acceleration
         """
         self.model_name = model_name
         self.primary_language = primary_language
         self.smart_model_selection = smart_model_selection and not force_model
         self.force_model = force_model
+        self.force_cpu = force_cpu
         self.model = None
         self.actual_model_used = None  # Track which model was actually used
         self.device = self._setup_device()
@@ -85,10 +88,20 @@ class WhisperTranscriber:
         }
     
     def _setup_device(self) -> torch.device:
-        """Setup M1 Mac optimized device"""
-        if torch.backends.mps.is_available():
-            logger.info("Using M1 GPU (MPS) for transcription")
-            return torch.device("mps")
+        """Setup device with CPU fallback option"""
+        if self.force_cpu:
+            logger.info("🔧 Forced CPU mode: Using CPU for transcription (MPS/CUDA disabled)")
+            return torch.device("cpu")
+        elif torch.backends.mps.is_available():
+            try:
+                # Test MPS availability more thoroughly
+                test_tensor = torch.ones(1, device="mps")
+                logger.info("✅ Using M1 GPU (MPS) for transcription")
+                return torch.device("mps")
+            except Exception as e:
+                logger.warning(f"⚠️  MPS device test failed: {e}")
+                logger.info("🔄 Falling back to CPU for transcription")
+                return torch.device("cpu")
         else:
             logger.info("Using CPU for transcription")
             return torch.device("cpu")
@@ -118,6 +131,22 @@ class WhisperTranscriber:
             except Exception as e:
                 logger.error(f"❌ Failed to load model '{model_to_load}': {e}")
                 
+                # Check if this is an MPS backend issue and try CPU fallback
+                if ("SparseMPS" in str(e) or "aten::" in str(e)) and not self.force_cpu and str(self.device) == "mps":
+                    logger.warning("⚠️  Detected MPS backend compatibility issue")
+                    logger.info("🔄 Automatically falling back to CPU device")
+                    self.device = torch.device("cpu")
+                    
+                    try:
+                        if self._is_hebrew_model(model_to_load):
+                            self.model = self._load_hebrew_model(model_to_load)
+                        else:
+                            self.model = whisper.load_model(model_to_load, device=self.device)
+                        logger.info("✅ Model loaded successfully with CPU fallback")
+                        return
+                    except Exception as cpu_error:
+                        logger.error(f"❌ CPU fallback also failed: {cpu_error}")
+                
                 # Fallback logic for Hebrew models
                 if self._is_hebrew_model(model_to_load):
                     logger.warning("🔄 Hebrew model failed, falling back to large model")
@@ -141,6 +170,18 @@ class WhisperTranscriber:
                             return
                         except Exception as fallback_error:
                             logger.error(f"❌ Fallback to {fallback} failed: {fallback_error}")
+                            # If MPS error on fallback model too, try CPU for this model
+                            if ("SparseMPS" in str(fallback_error) or "aten::" in str(fallback_error)) and str(self.device) == "mps":
+                                try:
+                                    logger.info(f"🔄 Trying {fallback} with CPU device...")
+                                    cpu_device = torch.device("cpu")
+                                    self.model = whisper.load_model(fallback, device=cpu_device)
+                                    self.device = cpu_device  # Update device for future operations
+                                    self.actual_model_used = fallback
+                                    logger.info(f"✅ {fallback} model loaded with CPU fallback")
+                                    return
+                                except Exception as cpu_fallback_error:
+                                    logger.error(f"❌ CPU fallback for {fallback} failed: {cpu_fallback_error}")
                 
                 # If all fallbacks fail, raise the original error
                 raise RuntimeError(f"Failed to load any Whisper model. Original error: {e}")

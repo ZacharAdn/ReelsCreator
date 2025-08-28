@@ -37,10 +37,14 @@ class TranscriptionStage(BaseStage):
     def __init__(self, config):
         super().__init__(config, "Transcription")
         
-        # Initialize Whisper transcriber
+        # Initialize Whisper transcriber with enhanced configuration support
+        transcription_model = getattr(config, 'transcription_model', getattr(config, 'whisper_model', 'base'))
         self.transcriber = WhisperTranscriber(
-            model_name=getattr(config, 'whisper_model', 'base'),
-            primary_language=getattr(config, 'primary_language', 'he')
+            model_name=transcription_model,
+            primary_language=getattr(config, 'primary_language', 'he'),
+            smart_model_selection=not getattr(config, 'force_transcription_model', False),
+            force_model=getattr(config, 'force_transcription_model', False),
+            force_cpu=getattr(config, 'force_cpu', False)
         )
         
         # Initialize language processor (optional)
