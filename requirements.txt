@@ -1,8 +1,9 @@
 # Core dependencies
-# NOTE: The codebase uses the OpenAI Whisper API via `import whisper`.
-# Prefer the official openai-whisper package. The timestamped fork is commented out for now.
-# whisper-timestamped>=1.12.0
+# NOTE: The codebase supports both OpenAI Whisper and faster-whisper for Hebrew models
+# OpenAI Whisper for standard models
 openai-whisper>=20231117
+# faster-whisper for Hebrew-optimized Ivrit.AI models (optional but recommended for Hebrew)
+faster-whisper>=0.10.0
 torch>=2.0.0
 sentence-transformers>=2.2.2
 pandas>=2.0.0

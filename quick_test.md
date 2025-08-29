@@ -1,6 +1,9 @@
 # בדיקת המודלים החדשים
 python -m src --list-models
 
+
+--save-stage-outputs
+
 # עברית אופטימלית עם הקובץ הקטן
 python -m src data/IMG_4225.MP4 --transcription-model ivrit-v2-d4 --force-model
 

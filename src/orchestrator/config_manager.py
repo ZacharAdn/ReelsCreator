@@ -178,14 +178,20 @@ class ConfigManager:
         for model, desc in standard_models:
             print(f"  • {model:<15} - {desc}")
         
-        print("\n🇮🇱 Hebrew-Optimized Models (Ivrit.AI):")
+        print("\n🇮🇱 Hebrew-Optimized Models (Ivrit.AI faster-whisper):")
         hebrew_models = [
-            ("ivrit-v2-d4", "Latest Hebrew-tuned Whisper v2 Large (Recommended for Hebrew)"),
-            ("ivrit-v2-d3-e3", "Alternative Hebrew-tuned Whisper v2 Large")
+            ("ivrit-v2-d4", "Latest Hebrew-tuned Whisper v2 Large (faster-whisper) - RECOMMENDED"),
+            ("ivrit-v2-d3-e3", "Alternative Hebrew-tuned Whisper v2 Large (faster-whisper)"),
+            ("hebrew", "Alias for ivrit-v2-d4 (latest Hebrew model)")
         ]
         
         for model, desc in hebrew_models:
             print(f"  • {model:<15} - {desc}")
+        
+        print("\n⚠️  Hebrew Model Requirements:")
+        print("  Hebrew models require faster-whisper library:")
+        print("  pip install faster-whisper>=0.10.0")
+        print("  If not installed, will fallback to standard whisper large model.")
         
         print("\n🤖 Automatic Selection:")
         print(f"  • {'auto':<15} - Smart selection based on video duration (default)")

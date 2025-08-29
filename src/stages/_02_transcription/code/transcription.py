@@ -14,16 +14,26 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from shared.models import Segment
 import math
 
-# Try whisper-timestamped first, fallback to openai-whisper
+# Try faster-whisper first (for Hebrew models), then whisper-timestamped, then openai-whisper
+FASTER_WHISPER_AVAILABLE = False
+WHISPER_TIMESTAMPED = False
+
+try:
+    from faster_whisper import WhisperModel as FasterWhisperModel
+    FASTER_WHISPER_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("✅ faster-whisper available for Hebrew-optimized models")
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.info("⚠️  faster-whisper not available, Hebrew models will fall back to standard whisper")
+
 try:
     import whisper_timestamped as whisper
     WHISPER_TIMESTAMPED = True
-    logger = logging.getLogger(__name__)
     logger.info("Using whisper-timestamped for enhanced multilingual support")
 except ImportError:
     import whisper
     WHISPER_TIMESTAMPED = False
-    logger = logging.getLogger(__name__)
     logger.warning("Using standard openai-whisper (consider installing whisper-timestamped for better multilingual support)")
 
 logger = logging.getLogger(__name__)
@@ -51,7 +61,9 @@ class WhisperTranscriber:
         self.force_model = force_model
         self.force_cpu = force_cpu
         self.model = None
-        self.actual_model_used = None  # Track which model was actually used
+        self.faster_whisper_model = None  # For faster-whisper models
+        self.use_faster_whisper = False   # Flag to track which backend is used
+        self.actual_model_used = None     # Track which model was actually used
         self.device = self._setup_device()
         
         # Map common model aliases to actual model names
@@ -108,16 +120,19 @@ class WhisperTranscriber:
     
     def load_model(self):
         """Load Whisper model with error handling, Hebrew model support, and fallback"""
-        if self.model is None:
+        if self.model is None and self.faster_whisper_model is None:
             model_to_load = self.model_name
             
             try:
-                # Handle Hebrew-optimized models
+                # Handle Hebrew-optimized models with faster-whisper
                 if self._is_hebrew_model(model_to_load):
                     logger.info(f"🇮🇱 Loading Hebrew-optimized model: {model_to_load}")
-                    self.model = self._load_hebrew_model(model_to_load)
-                    logger.info("✅ Hebrew model loaded successfully")
-                    return
+                    success = self._load_hebrew_model(model_to_load)
+                    if success:
+                        logger.info("✅ Hebrew model loaded successfully")
+                        return
+                    else:
+                        logger.warning("🔄 Hebrew model loading failed, trying standard models")
                     
                 # Handle latest Whisper models
                 if model_to_load == "large-v3-turbo" or model_to_load == "turbo":
@@ -191,27 +206,66 @@ class WhisperTranscriber:
         hebrew_indicators = ["ivrit", "hebrew", "ivrit-ai"]
         return any(indicator in model_name.lower() for indicator in hebrew_indicators)
     
-    def _load_hebrew_model(self, model_name: str):
+    def _load_hebrew_model(self, model_name: str) -> bool:
         """
-        Load Hebrew-optimized models with proper setup
+        Load Hebrew-optimized models with faster-whisper or fallback to standard
         
         Args:
-            model_name: Hebrew model name
+            model_name: Hebrew model name (e.g., 'ivrit-v2-d4', 'hebrew')
             
         Returns:
-            Loaded model instance
+            bool: True if successfully loaded, False if fallback needed
         """
-        # Map to actual model identifier
-        if model_name == "ivrit-ai/faster-whisper-v2-d4":
-            # This would require faster-whisper library and proper model loading
-            logger.warning("⚠️  Ivrit.AI models require faster-whisper library")
-            logger.info("🔄 Falling back to large model with Hebrew language hint")
-            return whisper.load_model("large", device=self.device)
+        # Resolve model name to actual identifier
+        actual_model_name = self._resolve_hebrew_model_name(model_name)
         
-        # Add other Hebrew model implementations here
-        logger.warning(f"⚠️  Hebrew model {model_name} not yet implemented")
-        logger.info("🔄 Using large model as Hebrew fallback")
-        return whisper.load_model("large", device=self.device)
+        # Try faster-whisper first if available
+        if FASTER_WHISPER_AVAILABLE:
+            try:
+                logger.info(f"🚀 Loading Hebrew model with faster-whisper: {actual_model_name}")
+                
+                # Configure device for faster-whisper
+                device_name = "cpu" if self.force_cpu or str(self.device) == "cpu" else "cuda"
+                if str(self.device) == "mps":
+                    device_name = "cpu"  # faster-whisper doesn't support MPS, use CPU
+                    logger.info("🔄 Using CPU for faster-whisper (MPS not supported)")
+                
+                # Load the model
+                self.faster_whisper_model = FasterWhisperModel(
+                    actual_model_name,
+                    device=device_name,
+                    compute_type="float16" if device_name == "cuda" else "float32"
+                )
+                self.use_faster_whisper = True
+                self.actual_model_used = actual_model_name
+                logger.info(f"✅ Hebrew model loaded with faster-whisper: {actual_model_name}")
+                return True
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to load Hebrew model with faster-whisper: {e}")
+                logger.warning("🔄 Falling back to standard whisper")
+        
+        # Fallback to standard whisper with Hebrew hints
+        try:
+            logger.info("🔄 Loading Hebrew model with standard whisper (large model + Hebrew language)")
+            self.model = whisper.load_model("large", device=self.device)
+            self.use_faster_whisper = False
+            self.actual_model_used = "large (Hebrew fallback)"
+            logger.info("✅ Hebrew fallback model loaded (standard whisper large)")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to load Hebrew fallback model: {e}")
+            return False
+    
+    def _resolve_hebrew_model_name(self, model_name: str) -> str:
+        """Resolve Hebrew model aliases to actual model names"""
+        hebrew_model_map = {
+            "ivrit-v2-d4": "ivrit-ai/faster-whisper-v2-d4",
+            "ivrit-v2-d3-e3": "ivrit-ai/faster-whisper-v2-d3-e3", 
+            "hebrew": "ivrit-ai/faster-whisper-v2-d4",  # Default to latest
+            "hebrew-latest": "ivrit-ai/faster-whisper-v2-d4"
+        }
+        return hebrew_model_map.get(model_name, model_name)
     
     def _get_turbo_model_name(self) -> str:
         """Get the correct turbo model name based on availability"""

@@ -14,6 +14,9 @@ source reels_extractor_env/bin/activate  # macOS/Linux
 # Install dependencies (standard full installation)
 pip install -r requirements.txt
 
+# For Hebrew-optimized transcription, ensure faster-whisper is installed:
+pip install faster-whisper>=0.10.0
+
 # Note: requirements_basic.txt and setup_environment.py have been removed
 # Use standard installation only
 ```
@@ -23,7 +26,7 @@ pip install -r requirements.txt
 # Basic video processing (auto model selection)
 python -m src path/to/video.mp4
 
-# 🆕 Hebrew-optimized transcription (RECOMMENDED FOR HEBREW)
+# 🆕 Hebrew-optimized transcription (RECOMMENDED FOR HEBREW) - requires faster-whisper
 python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4
 
 # Force specific model regardless of duration
@@ -251,14 +254,26 @@ Results include:
 
 **Model Selection Examples**:
 ```bash
-# Best Hebrew transcription
+# Best Hebrew transcription (requires faster-whisper)
 python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-model
+
+# Hebrew transcription with CPU fallback
+python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-cpu
 
 # Latest Whisper for mixed content  
 python -m src video.mp4 --transcription-model large-v3-turbo
 
-# See all options
+# See all options including Hebrew models
 python -m src --list-models
+```
+
+**Hebrew Model Installation**:
+```bash
+# Install faster-whisper for Hebrew models
+pip install faster-whisper>=0.10.0
+
+# Verify Hebrew model availability
+python -c "from faster_whisper import WhisperModel; print('faster-whisper ready for Hebrew models')"
 ```
 
 ### Performance Considerations
