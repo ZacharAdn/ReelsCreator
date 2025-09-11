@@ -24,7 +24,7 @@ def create_test_video():
         # Try to create a simple test video using matplotlib and moviepy
         import matplotlib.pyplot as plt
         import numpy as np
-        from moviepy.editor import VideoClip, AudioFileClip
+        from moviepy import VideoClip, AudioFileClip
         import tempfile
         
         # Create temporary directory

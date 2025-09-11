@@ -1,8 +1,8 @@
-# Multilingual and Speaker-Aware Content Processing - Implementation Status
-Date: 2025-02-08 | Updated: 2025-08-14
+# Multilingual and Speaker-Aware Content Processing
+Date: 2024-02-08
 
 ## Overview
-Implementation status for handling educational content with multiple speakers and mixed Hebrew-English technical terminology. **PHASE 1 IMPLEMENTED** - Basic infrastructure in place.
+Enhancement specification for handling educational content with multiple speakers and mixed Hebrew-English technical terminology.
 
 ## Current Challenges
 
@@ -31,7 +31,7 @@ Implementation status for handling educational content with multiple speakers an
 #### Processing Pipeline
 1. Initial audio analysis
 2. Speaker pattern recognition
-3. Role assignment based on speaking patterns
+3. Role assignment based on speaking patterns 
 4. Content filtering by speaker role
 
 #### Quality Metrics
@@ -60,34 +60,19 @@ Implementation status for handling educational content with multiple speakers an
 - Domain terminology density
 - Educational value scoring
 
-## Implementation Status ✅
+## Implementation Requirements
 
-### ✅ COMPLETED - Core Infrastructure
-- **Environment**: M1 Mac optimized virtual environment (`reels_extractor_env`)
-- **Dependencies**: 
-  - ✅ `whisper-timestamped>=1.14.0` - Enhanced multilingual transcription
-  - ✅ `langdetect>=1.0.9` - Language detection
-  - ✅ `torch>=2.0.0` with MPS (M1 GPU) support
-  - ⚠️ `pyannote.audio` - Deferred due to compilation issues on Python 3.8
-- **Technical Vocabulary**: 74 data science terms loaded
-- **Language Support**: Hebrew primary + English technical terms
+### New Dependencies
+- `pyannote.audio`: Speaker diarization
+- `whisper-large-v3`: Enhanced multilingual support
+- Technical vocabulary dataset
+- Language detection tools
 
-### ✅ COMPLETED - Code Implementation
-- **New Files**:
-  - `src/stages/_02_transcription/code/language_processor.py` - Multilingual processing (74 technical terms)
-  - `src/stages/_04_speaker_segmentation/code/speaker_analysis.py` - Speaker diarization infrastructure
-- **Enhanced Files**:
-  - `src/models.py` - Extended with speaker/language fields
-  - `src/stages/_02_transcription/code/transcription.py` - M1 GPU optimization + multilingual support
-  - `src/content_extractor.py` and `src/orchestrator/pipeline_orchestrator.py` - Integrated new processing pipeline
-
-### ⚠️ IN PROGRESS - Configuration Parameters
-- ✅ `primary_language: str = "he"` (Hebrew)
-- ✅ `technical_language: str = "en"` (English)
-- ✅ `preserve_technical_terms: bool = True`
-- ✅ `enable_speaker_detection: bool = False` (infrastructure ready)
-- 🔄 `primary_speaker_only: bool = False` (requires pyannote.audio)
-- 🔄 `speaker_batch_size: int = 8` (implemented but not tested)
+### Configuration Parameters
+- `primary_speaker_threshold`: Minimum speaking time ratio
+- `technical_term_confidence`: Minimum confidence for term preservation
+- `language_switch_tolerance`: Acceptable language mixing ratio
+- `speaker_filter_mode`: Strict/lenient filtering options
 
 ### Quality Thresholds
 - Primary speaker confidence: >0.85
@@ -109,56 +94,21 @@ Implementation status for handling educational content with multiple speakers an
 - Reduced manual filtering needs
 - Better segment selection
 
-## Current Issues & Next Steps (August 2025)
+## Future Enhancements
 
-### 🚨 **Critical Issues Blocking Production**
-1. **Quality Profile Hangs**: LLM model loading causes indefinite hangs
-   - **Impact**: Quality profile unusable, blocks production deployment
-   - **Status**: Needs immediate timeout/fallback implementation
-2. **Segment Quality Uniformity**: All segments receive identical 0.75 scores
-   - **Impact**: Cannot distinguish high-value Hebrew educational content
-   - **Status**: Enhanced evaluation algorithm needed
+### Phase 1 (Immediate)
+- Basic speaker diarization
+- Technical term preservation
+- Language-aware scoring
 
-### 🐛 **Known Technical Issues**
-3. **pyannote.audio**: Compilation fails on Python 3.8/M1 Mac - requires newer Python or pre-compiled wheels
-4. **Advanced Speaker Features**: Limited by Python 3.8 compatibility
-5. **whisper-timestamped API**: ✅ Fixed `word_timestamps` parameter compatibility
+### Phase 2 (Future)
+- Advanced speaker profiling
+- Domain-specific vocabulary expansion
+- Interactive speaker selection
+- Automated quality thresholds
 
-### 🎯 **Next Steps (Priority Order)**
-1. **URGENT**: Fix quality profile performance hangs (Week 1)
-2. **URGENT**: Resolve segment quality uniformity issue (Week 1)  
-3. **Short-term**: Validate technical term preservation across all profiles
-4. **Medium-term**: Upgrade to Python 3.9+ for full speaker diarization
-5. **Long-term**: Revisit advanced multilingual features after core stability
-
-### 🔄 Performance Updates (2025-08-14)
-- **Processing Profiles Added**:
-  - `draft`: 70% faster, basic Hebrew support
-  - `balanced`: Full Hebrew + technical terms
-  - `quality`: Complete language analysis
-- **Feature Controls**:
-  - `enable_technical_terms`: Optional term processing
-  - `minimal_mode`: Skip non-essential analysis
-  - `evaluation_batch_size`: Parallel processing
-- **Optimized Pipeline**:
-  - Batch LLM evaluation (5-8 segments)
-  - Memory-efficient language processing
-  - Configurable feature set
-
-### ✅ Working Features (Production Ready)
-- M1 GPU accelerated transcription (draft/balanced profiles)
-- Hebrew language detection and processing
-- Technical term identification (74 terms)
-- Enhanced multilingual transcription
-- Basic infrastructure for speaker processing
-
-### ⚠️ Features with Known Issues
-- **Quality profile**: Hangs during processing (use balanced profile instead)
-- **Quality scoring**: Uniform 0.75 scores across all segments
-- **Advanced speaker features**: Limited by Python 3.8 compatibility
-
-### 📊 Technical Performance (August 2025)
-- **GPU Support**: ✅ MPS (Metal Performance Shaders) working
-- **Dependencies**: 23/25 core packages installed successfully  
-- **Technical Terms**: 74 data science terms loaded and operational
-- **Processing Pipeline**: ⚠️ Functional with known quality/performance issues
+## Technical Notes
+1. Requires GPU for optimal performance
+2. Language models need periodic updates
+3. Speaker profiles can be saved for batch processing
+4. Consider privacy implications of speaker identification

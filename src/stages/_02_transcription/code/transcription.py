@@ -375,7 +375,7 @@ class WhisperTranscriber:
         except ImportError:
             # Fallback using moviepy if librosa not available
             try:
-                from moviepy.editor import AudioFileClip
+                from moviepy import AudioFileClip
                 with AudioFileClip(audio_path) as audio:
                     return audio.duration
             except ImportError:

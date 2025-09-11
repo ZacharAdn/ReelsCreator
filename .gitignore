@@ -244,3 +244,5 @@ pip-delete-this-directory.txt
 # Other package managers
 .pdm.toml
 __pypackages__/ 
+
+.*
