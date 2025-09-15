@@ -23,17 +23,22 @@ pip install faster-whisper>=0.10.0
 
 ### Running the System
 ```bash
-# Basic video processing (auto model selection)
-python -m src path/to/video.mp4
+# 🚨 UPDATED 2025-09-10: Current Working Commands
 
-# 🆕 Hebrew-optimized transcription (RECOMMENDED FOR HEBREW) - requires faster-whisper
-python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4
+# ✅ WORKING: Fast processing (bypasses problematic models)
+python -m src path/to/video.mp4 --profile draft --save-stage-outputs
 
-# Force specific model regardless of duration
-python -m src path/to/video.mp4 --transcription-model large --force-model
+# ✅ WORKING: Reliable Hebrew transcription
+python -m src path/to/video.mp4 --transcription-model base --force-cpu --save-stage-outputs
 
-# Latest Whisper turbo model (5.4x faster)
-python -m src path/to/video.mp4 --transcription-model large-v3-turbo
+# ✅ WORKING: Small videos with better quality  
+python -m src path/to/video.mp4 --transcription-model small --force-cpu --save-stage-outputs
+
+# ❌ BROKEN: Hebrew models (hanging issues)
+# python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4  # HANGS
+
+# ❌ BROKEN: Large models (hanging issues)  
+# python -m src path/to/video.mp4 --transcription-model large-v3-turbo  # HANGS
 
 # Fast processing with custom segments (90s with 20s overlap)
 python -m src path/to/video.mp4 --profile draft --segment-duration 90 --overlap-duration 20
@@ -139,7 +144,14 @@ This is a **multilingual educational content extraction pipeline** specifically 
 
 5. **Quality Profile Hangs**: Some edge cases may still hang during model loading. **Use `--profile balanced` for production.**
 
-6. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.8).
+6. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.11).
+
+7. **🚨 CRITICAL: Transcription Model Issues (2025-09-10)**:
+   - **`tiny` model**: Produces garbage repetitive text ("עוד עוד עוד" loops)
+   - **`ivrit-v2-d4`**: Hangs during transcription on CPU processing  
+   - **`large-v3-turbo`**: Hangs during transcription, too CPU intensive
+   - **`medium`**: Hangs on long videos (9+ minutes)
+   - **WORKAROUND**: Use `--profile draft` or `small/base` models with `--force-cpu`
 
 ### Troubleshooting LLM Hangs
 
@@ -160,6 +172,29 @@ If you encounter MPS backend errors like "Could not run 'aten::_sparse_coo_tenso
 4. **Check PyTorch MPS**: Verify PyTorch MPS installation with `python -c "import torch; print(torch.backends.mps.is_available())"`
 
 **Root cause**: Whisper models use sparse tensor operations that aren't fully compatible with the current PyTorch MPS backend on M1 Macs.
+
+### Troubleshooting Transcription Issues (2025-09-10)
+
+If you encounter poor transcription quality or hanging during transcription:
+
+1. **Garbage/Repetitive Output**: 
+   - **Problem**: `tiny` model produces "עוד עוד עוד" loops
+   - **Solution**: Use `base` or `small` models instead
+
+2. **Transcription Hanging**:
+   - **Problem**: `ivrit-v2-d4`, `large-v3-turbo`, `medium` hang on CPU
+   - **Solution**: Use `--profile draft` (bypasses heavy models entirely)
+   - **Alternative**: Test with shorter videos first
+
+3. **Hebrew Quality Issues**:
+   - **Best working solution**: `python -m src video.mp4 --transcription-model base --force-cpu`
+   - **Fastest solution**: `python -m src video.mp4 --profile draft`
+   - **Testing solution**: Use smaller video files (< 2 minutes) first
+
+4. **Long Video Processing**:
+   - **Problem**: 9+ minute videos cause models to hang
+   - **Solution**: Split videos or use draft profile
+   - **Workaround**: Process in shorter segments with `--segment-duration 45`
 
 ---
 
@@ -229,6 +264,7 @@ Results include:
 - **Speaker information**: Teacher vs student identification
 - **Quality reasoning**: AI-generated evaluation explanations with multilingual support
 - **✅ IMPROVED**: Enhanced scoring now provides proper variance (0.3-0.9 range) for Hebrew content
+- **✅ FIXED 2025-09-10**: Date-based folder structure `results/YYYY-MM-DD/` automatically created
 
 ### Hebrew/English Multilingual Support
 

@@ -7,7 +7,10 @@ import tempfile
 import os
 from pathlib import Path
 from typing import Optional
-from moviepy.editor import VideoFileClip
+try:
+    from moviepy.editor import VideoFileClip
+except ImportError:
+    from moviepy import VideoFileClip
 
 logger = logging.getLogger(__name__)
 

@@ -39,7 +39,10 @@ class OutputGenerationStage(BaseStage):
     def __init__(self, config):
         super().__init__(config, "OutputGeneration")
         
-        self.output_dir = Path(getattr(config, 'output_dir', 'results'))
+        # Create date-based output directory structure like: results/2025-09-10/
+        base_dir = Path(getattr(config, 'output_dir', 'results'))
+        date_folder = datetime.now().strftime("%Y-%m-%d")
+        self.output_dir = base_dir / date_folder
         self.export_formats = getattr(config, 'export_formats', ['csv', 'json', 'report'])
         
         # Ensure output directory exists

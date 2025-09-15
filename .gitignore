@@ -40,6 +40,7 @@ ENV/
 env.bak/
 venv.bak/
 reels_extractor_env/
+reels_extractor_env_311/
 *_env/
 
 # PyInstaller
@@ -173,6 +174,7 @@ logs/
 *.log
 output/
 results/
+stage_outputs/
 *.out
 
 # ===================================

@@ -10,7 +10,7 @@ import time
 
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 from shared.models import Segment
 import math
 
@@ -300,7 +300,43 @@ class WhisperTranscriber:
         start_time = time.time()
         
         try:
-            if WHISPER_TIMESTAMPED:
+            if self.use_faster_whisper and self.faster_whisper_model:
+                # Faster-whisper transcription (for Hebrew models)
+                segments, info = self.faster_whisper_model.transcribe(
+                    audio_path,
+                    language=self.primary_language,
+                    word_timestamps=True,
+                    vad_filter=True,
+                    vad_parameters=dict(min_silence_duration_ms=500)
+                )
+                
+                # Convert faster-whisper format to standard format
+                result = {
+                    "text": "",
+                    "language": info.language,
+                    "segments": []
+                }
+                
+                for segment in segments:
+                    result["segments"].append({
+                        "start": segment.start,
+                        "end": segment.end,
+                        "text": segment.text,
+                        "avg_logprob": segment.avg_logprob,
+                        "words": [
+                            {
+                                "start": word.start,
+                                "end": word.end,
+                                "word": word.word,
+                                "probability": word.probability
+                            } for word in segment.words
+                        ] if segment.words else []
+                    })
+                    result["text"] += segment.text + " "
+                
+                result["text"] = result["text"].strip()
+                
+            elif WHISPER_TIMESTAMPED:
                 # Enhanced multilingual transcription with whisper-timestamped
                 result = whisper.transcribe(
                     self.model,

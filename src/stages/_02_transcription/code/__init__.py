@@ -7,7 +7,8 @@ from typing import Dict, Any, List, Optional
 
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Add src to path - go up from stages/_02_transcription/code to src
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from shared.base_stage import BaseStage
 from shared.exceptions import StageException
