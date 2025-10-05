@@ -171,7 +171,7 @@ def write_chunk_output(output_dir, chunk_num, chunk_result, chunk_time, chunk_st
         f.write(f"CHUNK {chunk_num} TRANSCRIPT\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"Time range: {format_timestamp(chunk_start)} - {format_timestamp(chunk_start + chunk_duration)}\n")
-        f.write(f"Processing time: {chunk_time:.1f} seconds\n\n")
+        f.write(f"Processing time: {chunk_time:.1f} seconds ({chunk_time/60:.1f} minutes)\n\n")
         f.write("Transcript:\n")
         f.write("-" * 40 + "\n")
         f.write(chunk_result['text'] + "\n\n")
@@ -192,7 +192,7 @@ def write_chunk_output(output_dir, chunk_num, chunk_result, chunk_time, chunk_st
         f.write(f"Chunk number: {chunk_num}\n")
         f.write(f"Start time: {format_timestamp(chunk_start)}\n")
         f.write(f"Duration: {chunk_duration:.1f} seconds ({chunk_duration/60:.1f} minutes)\n")
-        f.write(f"Processing time: {chunk_time:.1f} seconds\n")
+        f.write(f"Processing time: {chunk_time:.1f} seconds ({chunk_time/60:.1f} minutes)\n")
         f.write(f"Language: {chunk_result['language']}\n")
         f.write(f"Number of segments: {len(chunk_result['segments'])}\n")
 
