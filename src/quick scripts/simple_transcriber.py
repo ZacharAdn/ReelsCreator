@@ -5,6 +5,18 @@ Simple transcription script to extract transcription and speaker detection from 
 
 import whisper
 import os
+from datetime import datetime
+
+def ensure_results_dir():
+    """
+    Create results directory if it doesn't exist
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(script_dir, "results")
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+        print(f"📁 Created results directory: {results_dir}")
+    return results_dir
 
 def transcribe_video(video_path):
     """
@@ -44,8 +56,12 @@ def transcribe_video(video_path):
         text = segment['text'].strip()
         print(f"[{start_time:7.2f}s - {end_time:7.2f}s] {text}")
     
-    # Save to file
-    output_file = "transcription_output.txt"
+    # Save to file in results directory
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"{video_name}_transcription_{timestamp}.txt"
+    results_dir = ensure_results_dir()
+    output_file = os.path.join(results_dir, output_filename)
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("TRANSCRIPTION RESULTS\n")
         f.write("=" * 60 + "\n\n")
