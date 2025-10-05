@@ -118,14 +118,31 @@ def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
 
 def ensure_results_dir():
     """
-    Create results directory if it doesn't exist
+    Create timestamped results subdirectory if it doesn't exist
+    Returns the path to the timestamped subdirectory
     """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    results_dir = os.path.join(script_dir, "results")
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-        print(f"📁 Created results directory: {results_dir}")
-    return results_dir
+    # Get base results directory
+    base_results_dir = "/Users/zacharadinaev/Programm/Reels_extractor/results"
+
+    # Create base directory if needed
+    if not os.path.exists(base_results_dir):
+        os.makedirs(base_results_dir)
+        print(f"📁 Created base results directory: {base_results_dir}")
+
+    # Create timestamped subdirectory
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    timestamped_dir = os.path.join(base_results_dir, timestamp)
+
+    # Check if directory already exists (in case of very fast repeated runs)
+    if os.path.exists(timestamped_dir):
+        # Add milliseconds to make it unique
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
+        timestamped_dir = os.path.join(base_results_dir, timestamp)
+
+    os.makedirs(timestamped_dir)
+    print(f"📁 Created timestamped output directory: {timestamped_dir}")
+
+    return timestamped_dir
 
 def format_timestamp(seconds):
     """
@@ -135,18 +152,78 @@ def format_timestamp(seconds):
     remaining_seconds = seconds % 60
     return f"{minutes}:{remaining_seconds:05.2f}"
 
+def write_chunk_output(output_dir, chunk_num, chunk_result, chunk_time, chunk_start, chunk_duration, cumulative_text):
+    """
+    Write chunk output to files in real-time (after each 2-minute chunk)
+
+    Args:
+        output_dir: Directory to write outputs to
+        chunk_num: Chunk number (1-indexed)
+        chunk_result: Result dictionary from process_chunk
+        chunk_time: Processing time for this chunk
+        chunk_start: Start time in seconds
+        chunk_duration: Duration of chunk in seconds
+        cumulative_text: All text transcribed so far (including this chunk)
+    """
+    # Write individual chunk transcript
+    chunk_file = os.path.join(output_dir, f"chunk_{chunk_num:02d}.txt")
+    with open(chunk_file, 'w', encoding='utf-8') as f:
+        f.write(f"CHUNK {chunk_num} TRANSCRIPT\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"Time range: {format_timestamp(chunk_start)} - {format_timestamp(chunk_start + chunk_duration)}\n")
+        f.write(f"Processing time: {chunk_time:.1f} seconds\n\n")
+        f.write("Transcript:\n")
+        f.write("-" * 40 + "\n")
+        f.write(chunk_result['text'] + "\n\n")
+        f.write("Segments with timestamps:\n")
+        f.write("-" * 40 + "\n")
+        for segment in chunk_result['segments']:
+            # Timestamps in chunk_result are already adjusted for chunk start
+            start_time = segment['start'] + chunk_start
+            end_time = segment['end'] + chunk_start
+            text = segment['text'].strip()
+            f.write(f"[{format_timestamp(start_time)} - {format_timestamp(end_time)}] {text}\n")
+
+    # Write chunk metadata
+    metadata_file = os.path.join(output_dir, f"chunk_{chunk_num:02d}_metadata.txt")
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        f.write(f"CHUNK {chunk_num} METADATA\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"Chunk number: {chunk_num}\n")
+        f.write(f"Start time: {format_timestamp(chunk_start)}\n")
+        f.write(f"Duration: {chunk_duration:.1f} seconds ({chunk_duration/60:.1f} minutes)\n")
+        f.write(f"Processing time: {chunk_time:.1f} seconds\n")
+        f.write(f"Language: {chunk_result['language']}\n")
+        f.write(f"Number of segments: {len(chunk_result['segments'])}\n")
+
+    # Update cumulative full transcript
+    full_transcript_file = os.path.join(output_dir, "full_transcript.txt")
+    with open(full_transcript_file, 'w', encoding='utf-8') as f:
+        f.write("CUMULATIVE FULL TRANSCRIPT\n")
+        f.write("=" * 60 + "\n")
+        f.write(f"Last updated: Chunk {chunk_num}\n")
+        f.write(f"Updated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write("Full transcript so far:\n")
+        f.write("-" * 40 + "\n")
+        f.write(cumulative_text)
+
+    print(f"💾 Chunk {chunk_num} output saved to: {output_dir}")
+
 def transcribe_video(video_path):
     """
     Extract transcription from video using configurable chunk sizes
     """
     print(f"Processing video: {video_path}")
     start_time_total = time.time()
-    
+
+    # Create timestamped output directory early (so chunk outputs can be written during processing)
+    output_dir = ensure_results_dir()
+
     # Extract audio using moviepy
     print("Extracting audio from video...")
     video = VideoFileClip(video_path)
     video_duration = video.duration
-    
+
     # Create temporary wav file
     temp_audio = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     temp_audio_path = temp_audio.name
@@ -173,21 +250,32 @@ def transcribe_video(video_path):
             for i in range(num_chunks):
                 chunk_start = i * CHUNK_SIZE_SECONDS
                 chunk_duration = min(CHUNK_SIZE_SECONDS, video_duration - chunk_start)
-                
+
                 print(f"\n🔄 Processing chunk {i+1}/{num_chunks}")
                 print(f"⏱️  Time range: {format_timestamp(chunk_start)} - {format_timestamp(chunk_start + chunk_duration)}")
-                
-                result, chunk_time = process_chunk(model, model_type, temp_audio_path, 
+
+                result, chunk_time = process_chunk(model, model_type, temp_audio_path,
                                                  start_time=chunk_start, duration=chunk_duration)
-                
+
                 print(f"✅ Chunk {i+1} completed in {chunk_time:.1f} seconds")
                 print("\nTranscript for this chunk:")
                 print("-" * 40)
                 print(result['text'])
                 print("-" * 40)
-                
+
                 all_results.append((result, chunk_time))
                 total_text += result['text'] + "\n\n"
+
+                # Write chunk output in real-time (after every 2-minute chunk)
+                write_chunk_output(
+                    output_dir=output_dir,
+                    chunk_num=i+1,
+                    chunk_result=result,
+                    chunk_time=chunk_time,
+                    chunk_start=chunk_start,
+                    chunk_duration=chunk_duration,
+                    cumulative_text=total_text
+                )
             
             # Combine results
             final_result = {
@@ -233,19 +321,19 @@ def transcribe_video(video_path):
             text = segment['text'].strip()
             print(f"[{format_timestamp(start_time)} - {format_timestamp(end_time)}] {text}")
         
-        # Save to file with model info in results directory
+        # Save final summary to file with model info in the same timestamped directory
         video_name = os.path.splitext(os.path.basename(video_file))[0]
         model_suffix = "hebrew" if model_type == "huggingface" else "whisper"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_filename = f"{video_name}_transcription_{model_suffix}_{timestamp}.txt"
-        results_dir = ensure_results_dir()
-        output_file = os.path.join(results_dir, output_filename)
+        output_filename = f"{video_name}_final_summary.txt"
+        output_file = os.path.join(output_dir, output_filename)
         with open(output_file, 'w', encoding='utf-8') as f:
-            f.write("TRANSCRIPTION RESULTS\n")
+            f.write("FINAL TRANSCRIPTION SUMMARY\n")
             f.write("=" * 60 + "\n\n")
             f.write(f"Video: {video_path}\n")
+            f.write(f"Model used: {model_suffix}\n")
             f.write(f"Language detected: {result['language']}\n")
-            f.write(f"Video Length: {format_timestamp(duration) if isinstance(duration, (int, float)) else duration}\n\n")
+            f.write(f"Video Length: {format_timestamp(duration) if isinstance(duration, (int, float)) else duration}\n")
+            f.write(f"Output directory: {output_dir}\n\n")
             
             f.write("Full transcript:\n")
             f.write("-" * 40 + "\n")
@@ -263,7 +351,8 @@ def transcribe_video(video_path):
         total_time = time.time() - start_time_total
         processing_minutes = total_time / 60
         print(f"\n⏱️  Total processing time: {total_time:.1f} seconds ({processing_minutes:.2f} minutes)")
-        print(f"📁 Results saved to: {output_file}")
+        print(f"📁 All results saved to directory: {output_dir}")
+        print(f"📄 Final summary: {output_file}")
         
         # Add processing time to the output file
         processing_minutes = total_time / 60
@@ -274,7 +363,7 @@ def transcribe_video(video_path):
             if video_duration > CHUNK_SIZE_SECONDS:  # If processed in chunks
                 f.write(f"Processed in {math.ceil(video_duration/CHUNK_SIZE_SECONDS)} chunks of {CHUNK_SIZE_MINUTES} minutes each\n")
                 for i, (_, chunk_time) in enumerate(all_results, 1):
-                    f.write(f"Chunk {i} processing time: {chunk_time:.1f} seconds\n")
+                    f.write(f"Chunk {i} processing time: {chunk_time:.1f} seconds ({(chunk_time/60):.2f} minutes)\n")
         
         # Basic speaker information (Whisper doesn't provide advanced speaker detection)
         print("\nSPEAKER DETECTION NOTES:")
@@ -292,9 +381,9 @@ def transcribe_video(video_path):
 if __name__ == "__main__":
     # Try multiple video files available in data directory
     video_files = [
-       "data/IMG_4225.MP4",  # Recommended for Hebrew testing
-     #     "data/IMG_4262.MOV", 
-        # "data/IMG_4216.MOV",
+    #    "data/IMG_4225.MP4",  # Recommended for Hebrew testing
+        #  "data/IMG_4262.MOV", 
+        "data/IMG_4216.MOV",
     #      "data/IMG_4222.MP4"   # Original target
     ]
     
