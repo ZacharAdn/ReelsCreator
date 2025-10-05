@@ -1,38 +1,14 @@
-# Core dependencies
-# NOTE: The codebase supports both OpenAI Whisper and faster-whisper for Hebrew models
-# OpenAI Whisper for standard models
+# Hebrew-Optimized Video Transcription
+# Minimal dependencies for transcribe_advanced.py
+
+# Whisper models for transcription
 openai-whisper>=20231117
-# faster-whisper for Hebrew-optimized Ivrit.AI models (optional but recommended for Hebrew)
-faster-whisper>=0.10.0
+faster-whisper>=0.10.0  # For Hebrew-optimized Ivrit.AI models
+
+# Core ML/AI
 torch>=2.0.0
-sentence-transformers>=2.2.2
-pandas>=2.0.0
-numpy>=1.24.0
-python-dotenv>=1.0.0
-tqdm>=4.65.0
-
-# Video processing
-moviepy>=1.0.3
-ffmpeg-python>=0.2.0
-librosa>=0.10.0
-
-# Open-source LLM (replace OpenAI)
 transformers>=4.30.0
-accelerate>=0.20.0
+huggingface-hub>=0.16.0
 
-# Speaker diarization and multilingual support
-pyannote.audio>=3.1.0
-whisper-timestamped>=1.14.0
-langdetect>=1.0.9
-spacy>=3.6.0
-
-# Performance and monitoring
-rich>=10.0.0
-timeout-decorator>=0.5.0
-psutil>=5.8.0
-
-# Testing dependencies
-pytest>=7.0.0
-pytest-cov>=4.0.0
-pytest-mock>=3.10.0
-pytest-benchmark>=4.0.0 
+# Video/Audio processing
+moviepy>=1.0.3

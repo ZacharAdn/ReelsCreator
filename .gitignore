@@ -29,7 +29,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
+MANIFESTF
 
 # Virtual environments
 .env
@@ -173,7 +173,6 @@ model_cache/
 logs/
 *.log
 output/
-results/
 *.out
 
 # ===================================

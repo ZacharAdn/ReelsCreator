@@ -1,0 +1,18 @@
+=== DETAILED ANALYSIS REPORT ===
+
+📈 SCORE DISTRIBUTION
+  0.0-0.2: 0 segments
+  0.2-0.4: 1 segments
+  0.4-0.6: 5 segments
+  0.6-0.8: 0 segments
+  0.8-1.0: 0 segments
+
+🏆 TOP SEGMENTS
+1. Score: 0.56 | 0:00-0:45
+   Text: וככה, אתם יודע אחד מהכר ואז כאילו כאילו האם משמור לקבל? כן, ואז משה את הצריך יגע בהמצא ועבין זה משוח...
+
+2. Score: 0.53 | 0:35-1:20
+   Text: אי, וכרום, אז זה את הסרסופרות וקטורס, רק התעוריות שמכות זה דבר הזה נספורת יותר, אז הוא קצת פחות רגיש...
+
+3. Score: 0.52 | 2:55-3:38
+   Text: מות שזה טריק מגניב. אז זה כרנה אלה, ובמקדמי לר, אבל לא נשאו. זה עושה שאני... זה פגדול זה... במקום......

@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "timestamp": "2025-09-10T13:51:06.287091",
+    "audio_path": "/var/folders/2z/wwf00s756pzgqj1p_51537qh0000gn/T/tmp3kj8njak_IMG_4262.wav",
+    "duration": 581.46,
+    "processing_profile": "draft"
+  },
+  "segments": {
+    "evaluated": [
+      {
+        "start_time": 560.0,
+        "end_time": 583.94,
+        "duration": 23.940000000000055,
+        "text": "‫-כן, עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד",
+        "confidence": 0.9572902164515531,
+        "value_score": 0.5630867026658046,
+        "reasoning": "Fast dynamic scoring for speed",
+        "technical_terms": null
+      }
+    ],
+    "high_value": [
+      {
+        "start_time": 560.0,
+        "end_time": 583.94,
+        "duration": 23.940000000000055,
+        "text": "‫-כן, עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד",
+        "confidence": 0.9572902164515531,
+        "value_score": 0.5630867026658046,
+        "reasoning": "Fast dynamic scoring for speed",
+        "technical_terms": null
+      }
+    ]
+  },
+  "summaries": {
+    "evaluation": {
+      "total_segments": 1,
+      "high_value_segments": 1,
+      "high_value_percentage": 100.0,
+      "average_score": 0.5630867026658046,
+      "min_score": 0.5630867026658046,
+      "max_score": 0.5630867026658046,
+      "score_distribution": {
+        "0.0-0.2": 0,
+        "0.2-0.4": 0,
+        "0.4-0.6": 1,
+        "0.6-0.8": 0,
+        "0.8-1.0": 0
+      },
+      "threshold_used": 0.5,
+      "evaluation_method": "rule_based",
+      "embeddings_generated": false
+    },
+    "segmentation": {
+      "original_segments": 173,
+      "overlapping_segments": 9,
+      "final_reels_segments": 1,
+      "average_duration": 23.940000000000055,
+      "segment_duration_target": 90,
+      "overlap_duration": 20,
+      "min_duration_filter": 15.0
+    },
+    "transcription": {
+      "total_segments": 173,
+      "total_duration": 581.46,
+      "average_confidence": 0.4975473915401759,
+      "technical_terms_found": 0,
+      "whisper_model_used": "tiny",
+      "primary_language": "he"
+    }
+  }
+}

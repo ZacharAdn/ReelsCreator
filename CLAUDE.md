@@ -2,296 +2,230 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+This is a **simple Hebrew-optimized video transcription tool**. The entire codebase consists of a single Python script (`transcribe_advanced.py`) that transcribes videos with automatic chunking and real-time output.
+
 ## Essential Commands
 
 ### Setup and Installation
+
 ```bash
 # Create and activate virtual environment
 python -m venv reels_extractor_env
 source reels_extractor_env/bin/activate  # macOS/Linux
-# or reels_extractor_env\Scripts\activate on Windows
+# or: reels_extractor_env\Scripts\activate  # Windows
 
-# Install dependencies (standard full installation)
+# Install dependencies
 pip install -r requirements.txt
 
-# For Hebrew-optimized transcription, ensure faster-whisper is installed:
-pip install faster-whisper>=0.10.0
-
-# Note: requirements_basic.txt and setup_environment.py have been removed
-# Use standard installation only
+# Install FFmpeg (required for video processing)
+# macOS:
+brew install ffmpeg
+# Ubuntu/Debian:
+sudo apt install ffmpeg
 ```
 
-### Running the System
+### Running the Transcription Script
+
 ```bash
-# Basic video processing (auto model selection)
-python -m src path/to/video.mp4
+# Activate virtual environment first
+source reels_extractor_env/bin/activate
 
-# 🆕 Hebrew-optimized transcription (RECOMMENDED FOR HEBREW) - requires faster-whisper
-python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4
+# Run the script directly
+python "src/quick scripts/transcribe_advanced.py"
 
-# Force specific model regardless of duration
-python -m src path/to/video.mp4 --transcription-model large --force-model
-
-# Latest Whisper turbo model (5.4x faster)
-python -m src path/to/video.mp4 --transcription-model large-v3-turbo
-
-# Fast processing with custom segments (90s with 20s overlap)
-python -m src path/to/video.mp4 --profile draft --segment-duration 90 --overlap-duration 20
-
-# Balanced processing (recommended)
-python -m src video.mp4 --profile balanced
-
-# With CSV export and custom output
-python -m src path/to/video.mp4 -o results.json --export-csv segments.csv
-
-# List all available transcription models
-python -m src --list-models
-
-# Advanced Hebrew processing
-python -m src video.mp4 --transcription-model hebrew --language he --enable-speaker-detection
-
-# 🔧 Fix MPS backend issues on M1 Mac (force CPU processing)
-python -m src path/to/video.mp4 --force-cpu
-
-# Hebrew model with CPU fallback (recommended if MPS fails)
-python -m src path/to/video.mp4 --transcription-model ivrit-v2-d4 --force-cpu
-
-# 📁 Save intermediate outputs from each pipeline stage
-python -m src path/to/video.mp4 --save-stage-outputs
-
-# Custom stage output directory
-python -m src path/to/video.mp4 --save-stage-outputs --stage-output-dir my_debug_outputs
+# Or use the helper script
+./run_transcription.sh
 ```
 
-### Testing and Development
-```bash
-# Run all tests
-pytest tests/
+### Configuration
 
-# Run with coverage report
-pytest --cov=src tests/ --cov-report=html
-
-# Run specific test categories
-pytest tests/test_core.py
-pytest tests/test_data_driven.py
-
-# Run performance benchmarks
-pytest tests/test_benchmark.py
+**Edit video files to process:**
+Open `src/quick scripts/transcribe_advanced.py` and modify the `video_files` list at the bottom:
+```python
+video_files = [
+    "data/IMG_4225.MP4",  # Your video file
+    "data/lecture.MOV",   # Add more here
+]
 ```
 
-### Troubleshooting Commands
+**Adjust chunk size:**
+Edit `CHUNK_SIZE_MINUTES` at the top of the script:
+```python
+CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
+```
+
+## Architecture
+
+### Single Script Design
+
+The codebase is intentionally minimal:
+- **One Python file**: `src/quick scripts/transcribe_advanced.py`
+- **No complex pipeline**: Direct transcription with chunk processing
+- **No external dependencies** on other modules
+
+### Core Functionality
+
+```
+transcribe_advanced.py does everything:
+1. Audio Extraction - Uses MoviePy to extract audio from video
+2. Model Loading - Tries Hebrew model → Whisper turbo → Whisper large
+3. Chunk Processing - Splits long videos into 2-minute chunks
+4. Real-time Output - Saves results after each chunk
+5. Timestamp Organization - Creates YYYY-MM-DD_HHMMSS directories
+```
+
+### Key Functions
+
+- `load_optimal_model()` - Loads best available transcription model with fallback
+- `process_chunk()` - Processes a single 2-minute audio chunk
+- `ensure_results_dir()` - Creates timestamped output directory
+- `write_chunk_output()` - Saves chunk results in real-time
+- `format_timestamp()` - Converts seconds to MM:SS format
+- `transcribe_video()` - Main orchestration function
+
+### Technologies Used
+
+- **OpenAI Whisper**: Standard transcription models
+- **Hugging Face Transformers**: Hebrew-optimized wav2vec2 model
+- **MoviePy**: Video/audio extraction
+- **FFmpeg**: Media processing backend
+
+## Output Structure
+
+Each run creates a timestamped directory in `/results/`:
+
+```
+results/2025-10-05_145645/
+├── chunk_01.txt              # Individual chunk transcripts
+├── chunk_01_metadata.txt     # Processing stats
+├── chunk_02.txt
+├── chunk_02_metadata.txt
+├── full_transcript.txt       # Cumulative (updated in real-time)
+└── {video_name}_final_summary.txt  # Complete results
+```
+
+## Supported Models
+
+The script tries these models in order (automatic fallback):
+
+1. **Hebrew-Optimized (Hugging Face)**
+   - Model: `imvladikon/wav2vec2-large-xlsr-53-hebrew`
+   - Best for pure Hebrew content
+   - Fastest, but may fail on some systems
+
+2. **Whisper large-v3-turbo**
+   - 5.4x faster than large
+   - Great for mixed Hebrew-English
+   - Good balance of speed and accuracy
+
+3. **Whisper large (fallback)**
+   - Most reliable
+   - Works on all systems
+   - Slower but highest quality
+
+## Common Development Patterns
+
+When modifying this codebase:
+
+1. **Keep it simple**: This is intentionally a single-file script
+2. **Preserve fallback logic**: Hebrew model → Turbo → Large is important
+3. **Maintain real-time output**: The `write_chunk_output()` calls are critical
+4. **Test with Hebrew content**: Always test with mixed Hebrew-English videos
+5. **Don't break timestamping**: The YYYY-MM-DD_HHMMSS directory structure is essential
+
+## Troubleshooting Commands
+
 ```bash
 # Check FFmpeg installation
 ffmpeg -version
 
-# Test basic video processing without AI models (updated path)
-python -c "from src.stages._01_audio_extraction.code.video_processing import VideoProcessor; print('Audio extraction available')"
-
 # Test Whisper installation
 python -c "import whisper; print(whisper.available_models())"
 
-# Test stage-based architecture
-python -c "from src.orchestrator.pipeline_orchestrator import PipelineOrchestrator; print('Pipeline orchestrator available')"
+# Test Hugging Face transformers
+python -c "from transformers import pipeline; print('Transformers working')"
 
-# Test LLM evaluation system (new)
-python -c "from src.stages._05_content_evaluation.code.evaluation import ContentEvaluator; print('LLM evaluator available')"
+# Test MoviePy
+python -c "from moviepy.editor import VideoFileClip; print('MoviePy working')"
 
-# Check system memory usage before processing
-python -c "import psutil; mem = psutil.virtual_memory(); print(f'Memory: {mem.percent:.1f}% used, {mem.available/1024**3:.1f}GB available')"
-
-# Test rule-based evaluation (fast fallback)
-python -c "from src.stages._05_content_evaluation.code.evaluation import ContentEvaluator; eval = ContentEvaluator(use_rule_based=True); print('Rule-based evaluator working')"
+# Check if results directory exists
+ls -la results/
 ```
 
-## Architecture Overview
+## Known Issues & Fixes
 
-This is a **multilingual educational content extraction pipeline** specifically optimized for Hebrew/English data science tutorials. The system processes long-form educational recordings to extract high-value segments suitable for short-form content creation.
+### MPS Backend Errors (M1 Mac)
 
-## ⚠️ **KNOWN ISSUES & FIXES** 
+**Issue**: Whisper models may fail with MPS sparse tensor errors on M1 Macs
 
-### Fixed Issues (v2.1 Updates)
+**Solution**: The script automatically detects MPS errors and falls back to CPU. No action needed.
 
-1. **LLM Evaluation Hanging** ✅ FIXED: 
-   - Added 60-second timeouts for single segment evaluation
-   - Added 2-minute timeouts for batch processing  
-   - Implemented automatic fallback to rule-based scoring after 3 LLM failures
-   - Fixed generation parameter conflicts (`do_sample`/`temperature` warnings)
+**Manual workaround** (if needed): The device is set to `"auto"` in the Hugging Face pipeline. You can modify this to `"cpu"` in the `load_optimal_model()` function.
 
-2. **Uniform Quality Scores** ✅ IMPROVED:
-   - Enhanced rule-based scoring with better variance (0.3-0.9 range)
-   - Fixed fast dynamic scoring to prevent uniform 0.75 scores
-   - Multi-criteria evaluation available for advanced scoring
+### Memory Issues
 
-3. **Hebrew Language Support** ✅ MAJOR IMPROVEMENT:
-   - Added 50+ Hebrew educational keywords ("דוגמה", "להסביר", "מושג", etc.)
-   - Added Hebrew technical terms + transliterations ("פונקציה", "פאנקשן", "נתונים")
-   - Added Hebrew engagement words ("מדהים", "פשוט", "יעיל", "טריק")
-   - Supports mixed Hebrew-English content (common in tech tutorials)
-   - Hebrew scoring now achieves 85%+ parity with English equivalents
+**Issue**: Large videos may cause memory problems
 
-4. **M1 Mac MPS Backend Issues** ✅ FIXED:
-   - Added `--force-cpu` flag to bypass MPS/CUDA acceleration
-   - Implemented automatic CPU fallback when MPS sparse tensor operations fail
-   - Enhanced device compatibility detection with error-specific handling
-   - Fixed "aten::_sparse_coo_tensor_with_dims_and_tensors" MPS backend errors
+**Solution**: Reduce `CHUNK_SIZE_MINUTES` to 1 minute for lower memory usage
 
-### Remaining Issues
+### Model Download Failures
 
-5. **Quality Profile Hangs**: Some edge cases may still hang during model loading. **Use `--profile balanced` for production.**
+**Issue**: First run may fail to download models
 
-6. **Limited Speaker Features**: Advanced speaker diarization requires Python 3.9+ (currently running 3.8).
+**Solution**: Ensure internet connection and ~5GB free disk space. Models download automatically on first run.
 
-### Troubleshooting LLM Hangs
+## File Paths
 
-If you encounter hanging during Content Evaluation stage:
+All file paths in the codebase:
 
-1. **Kill the process**: Ctrl+C or kill the Python process
-2. **Use draft profile**: `python -m src video.mp4 --profile draft` (bypasses LLM entirely)
-3. **Check memory usage**: System needs <80% memory usage for stable operation
-4. **Try balanced profile**: `python -m src video.mp4 --profile balanced` (automatic fallback enabled)
+- **Script**: `src/quick scripts/transcribe_advanced.py`
+- **Helper**: `run_transcription.sh`
+- **Videos**: `data/` (default location)
+- **Output**: `results/YYYY-MM-DD_HHMMSS/`
+- **Dependencies**: `requirements.txt`
 
-### Troubleshooting MPS Backend Issues (M1 Mac)
+## Testing
 
-If you encounter MPS backend errors like "Could not run 'aten::_sparse_coo_tensor_with_dims_and_tensors'":
+To test the script:
 
-1. **Use CPU processing**: `python -m src video.mp4 --force-cpu` (forces all models to use CPU)
-2. **Automatic fallback**: The system now automatically detects MPS errors and falls back to CPU
-3. **Hebrew models with CPU**: `python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-cpu`
-4. **Check PyTorch MPS**: Verify PyTorch MPS installation with `python -c "import torch; print(torch.backends.mps.is_available())"`
-
-**Root cause**: Whisper models use sparse tensor operations that aren't fully compatible with the current PyTorch MPS backend on M1 Macs.
-
----
-
-### Core Components (v2.0 Stage-based Architecture)
-
-**Main Orchestrator**: `src/orchestrator/pipeline_orchestrator.py` - PipelineOrchestrator manages the 6-stage pipeline
-
-**Processing Stages (6-Stage Architecture)**:
-1. **Audio Extraction** (`src/stages/_01_audio_extraction/code/video_processing.py`) - FFmpeg-based video to audio
-2. **Transcription** (`src/stages/_02_transcription/code/transcription.py`) - Whisper with Hebrew/English + technical terms
-3. **Content Segmentation** (`src/stages/_03_content_segmentation/code/segmentation.py`) - Reels-optimized segments
-4. **Speaker Segmentation** (`src/stages/_04_speaker_segmentation/code/`) - Advanced speaker analysis & classification
-5. **Content Evaluation** (`src/stages/_05_content_evaluation/code/evaluation.py`) - LLM quality assessment
-6. **Output Generation** (`src/stages/_06_output_generation/code/`) - Multi-format exports (JSON/CSV)
-
-**Infrastructure**:
-- **Stage Management**: `src/orchestrator/` - Pipeline coordination, configuration, performance monitoring
-- **Shared Utilities**: `src/shared/` - Base classes, exceptions, models, common utilities  
-- **Legacy Interface**: `src/content_extractor.py` - Backwards compatibility wrapper
-
-### Key Technologies
-
-- **AI Models**: OpenAI Whisper (transcription), Sentence-Transformers (embeddings), Qwen2.5/Phi-3 (evaluation)
-- **Media Processing**: FFmpeg, MoviePy, librosa
-- **Language Support**: spaCy (Hebrew), LangDetect, PyAnnote.Audio
-- **Performance**: PyTorch with M1 Mac MPS optimization, batch processing
-- **No External APIs**: Uses only local open-source models
-
-### Configuration System
-
-The system uses `ProcessingConfig` class with three optimized profiles:
-- **draft**: 70% faster, rule-based scoring (good for testing) ✅ Working - Recommended for speed
-- **balanced**: LLM evaluation with automatic fallback ✅ Working - **Recommended for production**  
-- **quality**: Advanced evaluation settings ⚠️ Some edge cases may hang
-
-**🚀 NEW**: Balanced profile now includes intelligent fallback - switches to rule-based evaluation automatically if LLM fails 3 times.
-
-Key parameters:
-- `segment_duration`: 90s (extended segment length for more context)
-- `overlap_duration`: 20s (increased overlap prevents content splitting)  
-- `min_score_threshold`: 0.7 (quality threshold)
-- `transcription_model`: "auto" (smart selection) or manual override
-- `evaluation_model`: Qwen2.5 or Phi-3 for local evaluation
-
-**🆕 New Transcription Control**:
-- **Manual Model Selection**: `--transcription-model large-v3-turbo`
-- **Hebrew Optimization**: `--transcription-model ivrit-v2-d4` 
-- **Force Override**: `--force-model` (ignores duration-based selection)
-- **Model Discovery**: `--list-models` (see all available options)
-
-### Data Flow
-
-1. **Input**: MP4/MOV/AVI video files
-2. **Audio Extraction**: FFmpeg converts to WAV
-3. **Transcription**: Whisper generates timestamped text
-4. **Segmentation**: Natural speech boundaries preserved
-5. **Speaker Analysis**: Teacher/student identification (optional)
-6. **Content Evaluation**: Local LLM scores segments
-7. **Output**: JSON/CSV with high-value segments, embeddings, metadata
-
-### Output Structure
-
-Results include:
-- **High-value segments**: Start/end times, transcribed text, quality scores
-- **Metadata**: Processing configuration, performance metrics
-- **Embeddings**: For similarity analysis and clustering
-- **Speaker information**: Teacher vs student identification
-- **Quality reasoning**: AI-generated evaluation explanations with multilingual support
-- **✅ IMPROVED**: Enhanced scoring now provides proper variance (0.3-0.9 range) for Hebrew content
-
-### Hebrew/English Multilingual Support
-
-**🆕 Enhanced Hebrew Support (v2.2)**:
-- **Hebrew-Optimized Transcription**: Ivrit.AI fine-tuned models (ivrit-v2-d4, ivrit-v2-d3-e3)
-- **Comprehensive Hebrew Keywords**: 50+ educational terms ("דוגמה", "להסביר", "חשוב")
-- **Technical Terminology**: Both Hebrew ("פונקציה", "נתונים") and transliterations ("פאנקשן", "דאטה") 
-- **Mixed Content**: Handles Hebrew explanations with English technical terms
-- **Unicode Processing**: Proper Hebrew character handling and normalization
-- **Performance**: Hebrew content achieves 85%+ scoring parity with English equivalents
-
-**Transcription Models**:
-- **Hebrew-Optimized**: `ivrit-v2-d4` (latest), `ivrit-v2-d3-e3`, `hebrew` (alias)
-- **Latest Whisper**: `large-v3-turbo` (5.4x faster), `large-v3`, `large`
-- **Standard Models**: `tiny`, `base`, `small`, `medium` for different performance needs
-- **Smart Selection**: `auto` chooses optimal model based on video duration
-
-**Language Features**:
-- **Primary languages**: Hebrew with English technical terms
-- **Manual Control**: Override automatic model selection for Hebrew content
-- **Fallback System**: Hebrew models fall back to `large` if unavailable
-- **Character encoding**: UTF-8 throughout pipeline with Hebrew normalization
-
-**Model Selection Examples**:
 ```bash
-# Best Hebrew transcription (requires faster-whisper)
-python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-model
+# 1. Place a short test video in data/
+cp /path/to/test.mp4 data/
 
-# Hebrew transcription with CPU fallback
-python -m src video.mp4 --transcription-model ivrit-v2-d4 --force-cpu
+# 2. Edit the video_files list in transcribe_advanced.py
+# Add "data/test.mp4" to the list
 
-# Latest Whisper for mixed content  
-python -m src video.mp4 --transcription-model large-v3-turbo
+# 3. Run the script
+source reels_extractor_env/bin/activate
+python "src/quick scripts/transcribe_advanced.py"
 
-# See all options including Hebrew models
-python -m src --list-models
+# 4. Check results
+ls -la results/
+cat results/*/full_transcript.txt
 ```
 
-**Hebrew Model Installation**:
-```bash
-# Install faster-whisper for Hebrew models
-pip install faster-whisper>=0.10.0
+## Important Reminders
 
-# Verify Hebrew model availability
-python -c "from faster_whisper import WhisperModel; print('faster-whisper ready for Hebrew models')"
-```
+1. **Results directory is sacred**: Never delete `results/` - it contains all historical transcriptions
+2. **Always activate venv**: The script requires the virtual environment
+3. **FFmpeg is required**: The script will fail without FFmpeg installed
+4. **First run is slow**: Models download on first run (~5GB total)
+5. **Chunk processing is interruptible**: Press Ctrl+C anytime - partial results are saved
 
-### Performance Considerations
+## Performance Expectations
 
-- **M1 Mac optimization**: MPS (Metal Performance Shaders) support
-- **GPU acceleration**: CUDA/MPS for faster processing
-- **Batch processing**: Configurable batch sizes for memory management
-- **Minimal mode**: Skip non-essential processing for maximum speed
-- **Memory efficient**: Streaming processing for large videos
+- **Short video (3-4 min)**: ~6 minutes processing time
+- **Medium video (20 min)**: ~30-40 minutes processing time
+- **Long video (60 min)**: ~2 hours processing time
+- **Processing speed**: ~3x real-time (varies by model and hardware)
 
-### Common Development Patterns
+## Future Enhancements (Optional)
 
-When modifying this codebase:
-1. **Follow stage-based architecture**: Each of the 6 stages in `src/stages/` is independent
-2. **Use configuration objects**: ProcessingConfig for all parameters  
-3. **Maintain Hebrew/English support**: Test with multilingual content
-4. **Preserve error handling**: Comprehensive logging throughout
-5. **Test thoroughly**: Core, integration, and performance tests
-6. **M1 Mac compatibility**: Always test MPS acceleration paths
-7. **Avoid quality profile**: Use balanced profile due to hanging issues
-8. **Be aware of scoring limitations**: Current evaluation provides uniform scores
+Potential improvements to consider:
+- Command-line arguments for video path and chunk size
+- Support for batch processing multiple videos
+- Better error recovery and retry logic
+- GPU acceleration support
+- Subtitle file generation (SRT, VTT)

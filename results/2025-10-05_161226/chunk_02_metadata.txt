@@ -1,0 +1,9 @@
+CHUNK 2 METADATA
+============================================================
+
+Chunk number: 2
+Start time: 2:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 2181.4 seconds
+Language: he
+Number of segments: 36

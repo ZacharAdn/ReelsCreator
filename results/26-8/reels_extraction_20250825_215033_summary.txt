@@ -1,0 +1,16 @@
+=== REELS CONTENT EXTRACTION SUMMARY ===
+Generated: 2025-08-25 21:50:33
+
+📹 INPUT INFORMATION
+Audio File: /var/folders/2z/wwf00s756pzgqj1p_51537qh0000gn/T/tmpayezqye4_IMG_4225.wav
+Duration: 218.9 seconds
+
+🎯 PROCESSING RESULTS
+Total Segments: 6
+High-Value Segments: 3
+Success Rate: 50.0%
+
+📊 QUALITY METRICS
+Average Score: 0.49
+Score Range: 0.40 - 0.56
+Evaluation Method: rule_based

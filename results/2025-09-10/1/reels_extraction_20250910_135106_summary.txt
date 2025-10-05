@@ -1,0 +1,29 @@
+=== REELS CONTENT EXTRACTION SUMMARY ===
+Generated: 2025-09-10 13:51:06
+
+⚙️ CONFIGURATION USED
+Profile: draft
+Transcription Model: tiny (actual: N/A)
+Force Model: No
+Segment Duration: 90s
+Overlap Duration: 20s
+Language: he
+Evaluation Model: microsoft/Phi-3-mini-4k-instruct
+Min Score Threshold: 0.5
+
+🖥️ EQUIVALENT COMMAND LINE
+python -m src data/IMG_4262.MOV --profile draft --transcription-model tiny --segment-duration 90 --overlap-duration 20
+
+📹 INPUT INFORMATION
+Audio File: /var/folders/2z/wwf00s756pzgqj1p_51537qh0000gn/T/tmp3kj8njak_IMG_4262.wav
+Duration: 581.5 seconds
+
+🎯 PROCESSING RESULTS
+Total Segments: 1
+High-Value Segments: 1
+Success Rate: 100.0%
+
+📊 QUALITY METRICS
+Average Score: 0.56
+Score Range: 0.56 - 0.56
+Evaluation Method: rule_based

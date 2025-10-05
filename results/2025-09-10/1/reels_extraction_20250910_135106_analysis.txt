@@ -1,0 +1,12 @@
+=== DETAILED ANALYSIS REPORT ===
+
+📈 SCORE DISTRIBUTION
+  0.0-0.2: 0 segments
+  0.2-0.4: 0 segments
+  0.4-0.6: 1 segments
+  0.6-0.8: 0 segments
+  0.8-1.0: 0 segments
+
+🏆 TOP SEGMENTS
+1. Score: 0.56 | 9:20-9:43
+   Text: ‫-כן, עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עוד עו...

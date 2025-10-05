@@ -1,0 +1,9 @@
+CHUNK 10 METADATA
+============================================================
+
+Chunk number: 10
+Start time: 18:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 843.6 seconds
+Language: he
+Number of segments: 60
