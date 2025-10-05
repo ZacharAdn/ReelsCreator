@@ -116,10 +116,13 @@ def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
     chunk_time = time.time() - chunk_start
     return result, chunk_time
 
-def ensure_results_dir():
+def ensure_results_dir(video_path):
     """
-    Create timestamped results subdirectory if it doesn't exist
+    Create timestamped results subdirectory with video filename
     Returns the path to the timestamped subdirectory
+
+    Args:
+        video_path: Path to the video file being processed
     """
     # Get base results directory
     base_results_dir = "/Users/zacharadinaev/Programm/Reels_extractor/results"
@@ -129,15 +132,22 @@ def ensure_results_dir():
         os.makedirs(base_results_dir)
         print(f"📁 Created base results directory: {base_results_dir}")
 
-    # Create timestamped subdirectory
+    # Extract video filename without extension and sanitize it
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    # Replace spaces and special chars with underscores
+    video_name_clean = video_name.replace(" ", "_").replace(".", "-")
+
+    # Create timestamped subdirectory with video filename
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    timestamped_dir = os.path.join(base_results_dir, timestamp)
+    dir_name = f"{video_name_clean}_{timestamp}"
+    timestamped_dir = os.path.join(base_results_dir, dir_name)
 
     # Check if directory already exists (in case of very fast repeated runs)
     if os.path.exists(timestamped_dir):
         # Add milliseconds to make it unique
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
-        timestamped_dir = os.path.join(base_results_dir, timestamp)
+        dir_name = f"{video_name_clean}_{timestamp}"
+        timestamped_dir = os.path.join(base_results_dir, dir_name)
 
     os.makedirs(timestamped_dir)
     print(f"📁 Created timestamped output directory: {timestamped_dir}")
@@ -217,7 +227,7 @@ def transcribe_video(video_path):
     start_time_total = time.time()
 
     # Create timestamped output directory early (so chunk outputs can be written during processing)
-    output_dir = ensure_results_dir()
+    output_dir = ensure_results_dir(video_path)
 
     # Extract audio using moviepy
     print("Extracting audio from video...")

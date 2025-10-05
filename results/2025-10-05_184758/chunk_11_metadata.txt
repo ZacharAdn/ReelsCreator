@@ -1,0 +1,9 @@
+CHUNK 11 METADATA
+============================================================
+
+Chunk number: 11
+Start time: 20:00.00
+Duration: 61.3 seconds (1.0 minutes)
+Processing time: 838.1 seconds
+Language: he
+Number of segments: 35

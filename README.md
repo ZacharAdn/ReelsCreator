@@ -22,7 +22,7 @@ Perfect for transcribing data science tutorials, educational content, and mixed 
 - **Multi-chunk processing** - Handle videos of any length (tested up to 20+ minutes)
 - **Progress tracking** - See exactly which chunk is being processed
 - **Real-time saves** - Access partial results even if processing is interrupted
-- **Timestamped outputs** - Each run creates a unique directory: `results/YYYY-MM-DD_HHMMSS/`
+- **Timestamped outputs** - Each run creates a unique directory: `results/VideoName_YYYY-MM-DD_HHMMSS/`
 - **Multiple output formats** - Individual chunk files, cumulative transcript, metadata
 - **M1 Mac compatible** - Automatic CPU fallback for MPS backend issues
 
@@ -78,7 +78,7 @@ python "src/quick scripts/transcribe_advanced.py"
 Each transcription run creates a timestamped directory in `results/`:
 
 ```
-results/2025-10-05_145645/
+results/IMG_4225_2025-10-05_145645/
 ├── chunk_01.txt              # First 2-minute chunk transcript
 ├── chunk_01_metadata.txt     # Processing stats for chunk 1
 ├── chunk_02.txt              # Second chunk
@@ -187,8 +187,8 @@ Reels_extractor/
 │       └── transcribe_advanced.py  # Main transcription script
 ├── data/                           # Place your videos here
 ├── results/                        # Timestamped output directories
-│   ├── 2025-10-05_145645/
-│   └── 2025-10-05_183042/
+│   ├── IMG_4225_2025-10-05_145645/
+│   └── lecture_2025-10-05_183042/
 ├── reels_extractor_env/           # Virtual environment
 ├── run_transcription.sh           # Helper script
 ├── requirements.txt               # Dependencies

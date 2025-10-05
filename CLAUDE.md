@@ -94,16 +94,16 @@ transcribe_advanced.py does everything:
 
 ## Output Structure
 
-Each run creates a timestamped directory in `/results/`:
+Each run creates a timestamped directory in `/results/` with format `VideoName_YYYY-MM-DD_HHMMSS`:
 
 ```
-results/2025-10-05_145645/
+results/IMG_4225_2025-10-05_145645/
 ├── chunk_01.txt              # Individual chunk transcripts
 ├── chunk_01_metadata.txt     # Processing stats
 ├── chunk_02.txt
 ├── chunk_02_metadata.txt
 ├── full_transcript.txt       # Cumulative (updated in real-time)
-└── {video_name}_final_summary.txt  # Complete results
+└── IMG_4225_final_summary.txt  # Complete results
 ```
 
 ## Supported Models
@@ -183,7 +183,7 @@ All file paths in the codebase:
 - **Script**: `src/quick scripts/transcribe_advanced.py`
 - **Helper**: `run_transcription.sh`
 - **Videos**: `data/` (default location)
-- **Output**: `results/YYYY-MM-DD_HHMMSS/`
+- **Output**: `results/VideoName_YYYY-MM-DD_HHMMSS/`
 - **Dependencies**: `requirements.txt`
 
 ## Testing
