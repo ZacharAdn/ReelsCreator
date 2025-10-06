@@ -175,6 +175,10 @@ logs/
 output/
 *.out
 
+# Output directories
+results/
+generated_data/
+
 # ===================================
 # SENSITIVE & CONFIG FILES
 # ===================================

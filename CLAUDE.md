@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **simple Hebrew-optimized video transcription tool**. The entire codebase consists of a single Python script (`transcribe_advanced.py`) that transcribes videos with automatic chunking and real-time output.
+This is a **simple Hebrew-optimized video processing toolkit** with two main tools:
+
+1. **`transcribe_advanced.py`** - Transcribes videos with automatic chunking and real-time output
+2. **`cut_video_segments.py`** - Extracts and concatenates specific time ranges to create Reels/Shorts
 
 ## Essential Commands
 
@@ -26,8 +29,9 @@ brew install ffmpeg
 sudo apt install ffmpeg
 ```
 
-### Running the Transcription Script
+### Running the Scripts
 
+**Transcription:**
 ```bash
 # Activate virtual environment first
 source reels_extractor_env/bin/activate
@@ -37,6 +41,26 @@ python "src/quick scripts/transcribe_advanced.py"
 
 # Or use the helper script
 ./run_transcription.sh
+```
+
+**Video Segment Cutting:**
+```bash
+# Activate virtual environment
+source reels_extractor_env/bin/activate
+
+# Interactive mode (easiest)
+python "src/quick scripts/cut_video_segments.py"
+
+# Command-line mode with examples from user
+python "src/quick scripts/cut_video_segments.py" \
+  --video data/IMG_4225.MP4 \
+  --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
+
+# Use FFmpeg for faster processing
+python "src/quick scripts/cut_video_segments.py" \
+  --video data/IMG_4225.MP4 \
+  --ranges "1:00-2:00" \
+  --use-ffmpeg
 ```
 
 ### Configuration
@@ -58,12 +82,13 @@ CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
 
 ## Architecture
 
-### Single Script Design
+### Two-Script Design
 
 The codebase is intentionally minimal:
-- **One Python file**: `src/quick scripts/transcribe_advanced.py`
-- **No complex pipeline**: Direct transcription with chunk processing
-- **No external dependencies** on other modules
+- **`transcribe_advanced.py`** - Video transcription with chunk processing
+- **`cut_video_segments.py`** - Video segment extraction and concatenation
+- **No complex pipeline**: Direct, focused functionality
+- **No external dependencies** between scripts
 
 ### Core Functionality
 
@@ -180,10 +205,13 @@ ls -la results/
 
 All file paths in the codebase:
 
-- **Script**: `src/quick scripts/transcribe_advanced.py`
+- **Scripts**:
+  - `src/quick scripts/transcribe_advanced.py` (transcription)
+  - `src/quick scripts/cut_video_segments.py` (video cutting)
 - **Helper**: `run_transcription.sh`
-- **Videos**: `data/` (default location)
-- **Output**: `results/VideoName_YYYY-MM-DD_HHMMSS/`
+- **Videos**: `data/` (default input location)
+- **Transcription Output**: `results/VideoName_YYYY-MM-DD_HHMMSS/`
+- **Cut Video Output**: `generated_data/VideoName_REEL.MP4`
 - **Dependencies**: `requirements.txt`
 
 ## Testing

@@ -1,13 +1,16 @@
-# Hebrew Video Transcription Tool 🎬
+# Hebrew Video Transcription & Reel Creator 🎬
 
-A simple, powerful Python script for transcribing Hebrew and English educational videos with automatic chunking and real-time output.
+A simple, powerful toolkit for transcribing Hebrew and English educational videos with automatic chunking, real-time output, and video segment extraction for creating Reels/Shorts.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 Overview
 
-This tool transcribes long videos (educational content, lectures, tutorials) into timestamped text with:
+This toolkit provides two powerful tools:
+
+### 1. **Video Transcription** (`transcribe_advanced.py`)
+Transcribes long videos (educational content, lectures, tutorials) into timestamped text with:
 
 - **🇮🇱 Hebrew-Optimized Transcription** - Uses Ivrit.AI models + Whisper large-v3-turbo
 - **⚡ Chunk Processing** - Processes videos in 2-minute chunks with progress tracking
@@ -15,7 +18,16 @@ This tool transcribes long videos (educational content, lectures, tutorials) int
 - **📁 Organized Results** - Each run creates a timestamped directory with all outputs
 - **🔄 Automatic Fallback** - Hebrew model → Whisper turbo → Whisper large
 
-Perfect for transcribing data science tutorials, educational content, and mixed Hebrew-English recordings.
+### 2. **Video Segment Cutter** (`cut_video_segments.py`)
+Extracts and concatenates specific time ranges to create Reels/Shorts:
+
+- **✂️ Precise Cutting** - Extract exact time ranges from videos
+- **🔗 Auto-Concatenation** - Joins all segments into one video
+- **⚡ Two Methods** - MoviePy (simple) or FFmpeg (faster)
+- **🎯 Smart Naming** - Outputs to `generated_data/VideoName_REEL.MP4`
+- **📝 Flexible Input** - Interactive mode or command-line arguments
+
+Perfect for transcribing data science tutorials, educational content, and creating engaging short-form content from long videos.
 
 ## ✨ Features
 
@@ -60,6 +72,8 @@ sudo apt install ffmpeg
 
 ### 2. Basic Usage
 
+#### Transcription
+
 ```bash
 # Activate virtual environment
 source reels_extractor_env/bin/activate
@@ -72,6 +86,33 @@ python "src/quick scripts/transcribe_advanced.py"
 ```
 
 **Note:** The script looks for videos in the `data/` directory by default. Edit the video file list at the bottom of `transcribe_advanced.py` to specify which videos to process.
+
+#### Video Segment Cutting
+
+```bash
+# Activate virtual environment
+source reels_extractor_env/bin/activate
+
+# Interactive mode (easiest)
+python "src/quick scripts/cut_video_segments.py"
+
+# Command-line mode
+python "src/quick scripts/cut_video_segments.py" \
+  --video data/IMG_4225.MP4 \
+  --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
+
+# Use FFmpeg for faster processing (no re-encoding)
+python "src/quick scripts/cut_video_segments.py" \
+  --video data/IMG_4225.MP4 \
+  --ranges "1:00-2:00, 3:00-4:00" \
+  --use-ffmpeg
+
+# Custom output location
+python "src/quick scripts/cut_video_segments.py" \
+  --video data/IMG_4225.MP4 \
+  --ranges "1:00-2:00" \
+  --output my_custom_reel.mp4
+```
 
 ### 3. Output Structure
 
@@ -89,9 +130,9 @@ results/IMG_4225_2025-10-05_145645/
 
 ## ⚙️ Configuration
 
-### Chunk Size
+### Transcription - Chunk Size
 
-You can adjust the chunk size by editing `CHUNK_SIZE_MINUTES` at the top of the script:
+You can adjust the chunk size by editing `CHUNK_SIZE_MINUTES` at the top of `transcribe_advanced.py`:
 
 ```python
 # In transcribe_advanced.py
@@ -101,15 +142,28 @@ CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
 - **Smaller chunks (1-2 min)** = More frequent progress updates, more output files
 - **Larger chunks (5+ min)** = Fewer updates, potentially faster overall processing
 
-### Video Selection
+### Transcription - Video Selection
 
-Edit the `video_files` list at the bottom of the script:
+Edit the `video_files` list at the bottom of `transcribe_advanced.py`:
 
 ```python
 video_files = [
     "data/IMG_4225.MP4",  # Your video
     "data/lecture.MOV",   # Add more videos here
 ]
+```
+
+### Video Cutting - Time Range Format
+
+Time ranges support multiple formats:
+- **MM:SS.MS** - `1:23.45` (1 minute, 23.45 seconds)
+- **M:SS.MS** - `1:00.26` (1 minute, 0.26 seconds)
+- **SS.MS** - `45.50` (45.5 seconds)
+- **MM:SS** - `1:23` (1 minute, 23 seconds)
+
+Multiple ranges separated by commas:
+```
+"1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
 ```
 
 ## 📊 Output Files Explained
@@ -184,11 +238,15 @@ Ensure you have internet connection and ~5GB free space. The models will downloa
 Reels_extractor/
 ├── src/
 │   └── quick scripts/
-│       └── transcribe_advanced.py  # Main transcription script
+│       ├── transcribe_advanced.py  # Transcription script
+│       └── cut_video_segments.py   # Video segment cutter
 ├── data/                           # Place your videos here
-├── results/                        # Timestamped output directories
+├── results/                        # Transcription output directories
 │   ├── IMG_4225_2025-10-05_145645/
 │   └── lecture_2025-10-05_183042/
+├── generated_data/                 # Cut video output directory
+│   ├── IMG_4225_REEL.MP4
+│   └── lecture_REEL.MP4
 ├── reels_extractor_env/           # Virtual environment
 ├── run_transcription.sh           # Helper script
 ├── requirements.txt               # Dependencies
@@ -198,11 +256,18 @@ Reels_extractor/
 
 ## 🎯 Use Cases
 
+### Transcription
 - **Educational Content**: Transcribe data science lectures and tutorials
 - **Meeting Notes**: Convert recorded meetings to searchable text
 - **Podcast Transcription**: Create text versions of audio content
-- **Content Creation**: Extract quotes and segments for social media
 - **Accessibility**: Generate captions and subtitles
+
+### Video Cutting
+- **Reels/Shorts Creation**: Extract best moments from long videos
+- **Highlight Compilation**: Combine key segments into one video
+- **Content Repurposing**: Create short-form content from lectures
+- **Social Media**: Generate TikTok, Instagram Reels, YouTube Shorts
+- **Tutorial Snippets**: Extract specific examples or demonstrations
 
 ## 📈 Performance
 
