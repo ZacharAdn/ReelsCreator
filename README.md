@@ -31,12 +31,21 @@ Perfect for transcribing data science tutorials, educational content, and creati
 
 ## ✨ Features
 
+### Transcription Features
+- **Interactive video selection** - Browse all videos in your project with metadata
 - **Multi-chunk processing** - Handle videos of any length (tested up to 20+ minutes)
 - **Progress tracking** - See exactly which chunk is being processed
 - **Real-time saves** - Access partial results even if processing is interrupted
 - **Timestamped outputs** - Each run creates a unique directory: `results/VideoName_YYYY-MM-DD_HHMMSS/`
 - **Multiple output formats** - Individual chunk files, cumulative transcript, metadata
 - **M1 Mac compatible** - Automatic CPU fallback for MPS backend issues
+
+### Video Cutting Features
+- **Interactive range input** - Add time ranges one by one with validation
+- **Smart file naming** - Auto-increments (`_REEL_2.MP4`, `_REEL_3.MP4`) to avoid overwrites
+- **Dual processing modes** - MoviePy (easy) or FFmpeg (fast)
+- **Format flexibility** - Supports MM:SS.MS, M:SS.MS, SS.MS, MM:SS formats
+- **Visual metadata** - See duration, size, and date before selecting
 
 ## 🚀 Quick Start
 
@@ -72,7 +81,7 @@ sudo apt install ffmpeg
 
 ### 2. Basic Usage
 
-#### Transcription
+#### Transcription (Interactive Mode)
 
 ```bash
 # Activate virtual environment
@@ -80,23 +89,87 @@ source reels_extractor_env/bin/activate
 
 # Run the transcription script
 python "src/quick scripts/transcribe_advanced.py"
-
-# Or use the helper script
-./run_transcription.sh
 ```
 
-**Note:** The script looks for videos in the `data/` directory by default. Edit the video file list at the bottom of `transcribe_advanced.py` to specify which videos to process.
+**Interactive Flow:**
+1. 🔍 Script scans project for all directories with videos
+2. 📁 Select directory (shows video count for each)
+3. 📹 View all videos with duration, size, and date
+4. ✅ Select video to transcribe
+5. ⚡ Processing begins with real-time progress updates
 
-#### Video Segment Cutting
+**Example:**
+```
+📁 Directories with videos:
+================================================================================
+
+1. ./data
+   (3 videos)
+
+2. ./archive/lectures
+   (5 videos)
+
+Select directory number: 1
+
+📹 Available Videos
+================================================================================
+
+1. IMG_4225.MP4
+   Duration: 3:45.26 | Size: 125.3MB | Date: 2025-10-05
+
+2. lecture.MOV
+   Duration: 12:30.00 | Size: 450.2MB | Date: 2025-10-04
+
+Select video number: 1
+```
+
+#### Video Segment Cutting (Interactive Mode)
 
 ```bash
 # Activate virtual environment
 source reels_extractor_env/bin/activate
 
-# Interactive mode (easiest)
+# Run in interactive mode (recommended)
 python "src/quick scripts/cut_video_segments.py"
+```
 
-# Command-line mode
+**Interactive Flow:**
+1. 📹 Script scans `data/` directory for videos
+2. 📊 View all videos with duration, size, and date
+3. ✅ Select video to cut
+4. ✂️ Enter time ranges one by one (press Enter when done)
+5. ⚡ Choose MoviePy (default) or FFmpeg (faster)
+6. 🎬 Video segments are extracted and concatenated
+7. 💾 Output saved with unique name (auto-increments if file exists)
+
+**Example:**
+```
+📹 Available Videos
+================================================================================
+
+1. IMG_4225.MP4
+   Duration: 3:45.26 | Size: 125.3MB | Date: 2025-10-05
+
+Select video number: 1
+
+Range #1 (or press Enter to finish):
+> 1:00.26-1:07.16
+   ✓ Added: 1:00.26 - 1:07.16 (6.9s)
+
+Range #2 (or press Enter to finish):
+> 1:27.64-1:31.72
+   ✓ Added: 1:27.64 - 1:31.72 (4.1s)
+
+Range #3 (or press Enter to finish):
+> [Enter]
+
+📊 Total: 2 ranges | Total duration: 0:11.00
+```
+
+#### Command-Line Mode (For Automation)
+
+```bash
+# Video cutting with command-line arguments
 python "src/quick scripts/cut_video_segments.py" \
   --video data/IMG_4225.MP4 \
   --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
@@ -141,17 +214,6 @@ CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
 
 - **Smaller chunks (1-2 min)** = More frequent progress updates, more output files
 - **Larger chunks (5+ min)** = Fewer updates, potentially faster overall processing
-
-### Transcription - Video Selection
-
-Edit the `video_files` list at the bottom of `transcribe_advanced.py`:
-
-```python
-video_files = [
-    "data/IMG_4225.MP4",  # Your video
-    "data/lecture.MOV",   # Add more videos here
-]
-```
 
 ### Video Cutting - Time Range Format
 
@@ -246,6 +308,7 @@ Reels_extractor/
 │   └── lecture_2025-10-05_183042/
 ├── generated_data/                 # Cut video output directory
 │   ├── IMG_4225_REEL.MP4
+│   ├── IMG_4225_REEL_2.MP4         # Auto-incremented versions
 │   └── lecture_REEL.MP4
 ├── reels_extractor_env/           # Virtual environment
 ├── run_transcription.sh           # Helper script

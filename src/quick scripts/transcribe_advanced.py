@@ -66,22 +66,23 @@ def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
     if model_type == "huggingface":
         # Process with Hugging Face model
         result = model(audio_path, chunk_length_s=30)
-        
+
         # Convert to whisper-like format
         segments = []
         text = ""
         current_time = start_time
-        
+
         for segment in result["chunks"]:
+            cleaned_text = clean_rtl_markers(segment)
             segment_dict = {
                 'start': current_time,
                 'end': current_time + 30,  # Approximate, as HF doesn't provide exact timestamps
-                'text': segment
+                'text': cleaned_text
             }
             segments.append(segment_dict)
-            text += segment + " "
+            text += cleaned_text + " "
             current_time += 30
-        
+
         result = {
             'language': 'he',
             'duration': duration if duration else (current_time - start_time),
@@ -95,13 +96,18 @@ def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
             word_timestamps=True,
             language="he"
         )
-        
+
+        # Clean RTL markers from Whisper output
+        result['text'] = clean_rtl_markers(result['text'])
+        for segment in result['segments']:
+            segment['text'] = clean_rtl_markers(segment['text'])
+
         # If we need chunking for standard whisper, filter segments by time
         if start_time > 0 or duration is not None:
             end_time = start_time + duration if duration else float('inf')
             filtered_segments = []
             filtered_text = ""
-            
+
             for segment in result['segments']:
                 if segment['start'] >= start_time and segment['start'] < end_time:
                     # Adjust segment times relative to chunk start
@@ -110,7 +116,7 @@ def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
                     adjusted_segment['end'] = segment['end'] - start_time
                     filtered_segments.append(adjusted_segment)
                     filtered_text += segment['text']
-            
+
             result['segments'] = filtered_segments
             result['text'] = filtered_text
     
@@ -138,22 +144,39 @@ def ensure_results_dir(video_path):
     # Replace spaces and special chars with underscores
     video_name_clean = video_name.replace(" ", "_").replace(".", "-")
 
-    # Create timestamped subdirectory with video filename
+    # Create timestamped subdirectory with date first, then video filename
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    dir_name = f"{video_name_clean}_{timestamp}"
+    dir_name = f"{timestamp}_{video_name_clean}"
     timestamped_dir = os.path.join(base_results_dir, dir_name)
 
     # Check if directory already exists (in case of very fast repeated runs)
     if os.path.exists(timestamped_dir):
         # Add milliseconds to make it unique
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
-        dir_name = f"{video_name_clean}_{timestamp}"
+        dir_name = f"{timestamp}_{video_name_clean}"
         timestamped_dir = os.path.join(base_results_dir, dir_name)
 
     os.makedirs(timestamped_dir)
     print(f"📁 Created timestamped output directory: {timestamped_dir}")
 
     return timestamped_dir
+
+def clean_rtl_markers(text):
+    """
+    Remove RTL (Right-to-Left) control characters from text
+    These are invisible Unicode characters that Whisper adds to Hebrew text
+    """
+    rtl_chars = [
+        '\u202B',  # RIGHT-TO-LEFT EMBEDDING
+        '\u202A',  # LEFT-TO-RIGHT EMBEDDING
+        '\u202C',  # POP DIRECTIONAL FORMATTING
+        '\u200F',  # RIGHT-TO-LEFT MARK
+        '\u200E',  # LEFT-TO-RIGHT MARK
+    ]
+    cleaned = text
+    for char in rtl_chars:
+        cleaned = cleaned.replace(char, '')
+    return cleaned
 
 def format_timestamp(seconds):
     """

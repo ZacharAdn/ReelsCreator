@@ -31,27 +31,39 @@ sudo apt install ffmpeg
 
 ### Running the Scripts
 
-**Transcription:**
+**Transcription (Interactive Mode):**
 ```bash
 # Activate virtual environment first
 source reels_extractor_env/bin/activate
 
-# Run the script directly
+# Run the script in interactive mode
 python "src/quick scripts/transcribe_advanced.py"
 
-# Or use the helper script
-./run_transcription.sh
+# The script will:
+# 1. Scan project for directories with videos
+# 2. Show all directories and video count
+# 3. Let you select a directory
+# 4. Display all videos with duration, size, and date
+# 5. Let you select a video to transcribe
 ```
 
-**Video Segment Cutting:**
+**Video Segment Cutting (Interactive Mode):**
 ```bash
 # Activate virtual environment
 source reels_extractor_env/bin/activate
 
-# Interactive mode (easiest)
+# Interactive mode (recommended)
 python "src/quick scripts/cut_video_segments.py"
 
-# Command-line mode with examples from user
+# The script will:
+# 1. Scan data/ directory for videos
+# 2. Display all videos with duration, size, and date
+# 3. Let you select a video
+# 4. Prompt for time ranges one by one (press Enter to finish)
+# 5. Ask if you want to use FFmpeg (faster)
+# 6. Generate unique output name (adds _2, _3, etc. if file exists)
+
+# Command-line mode (for automation)
 python "src/quick scripts/cut_video_segments.py" \
   --video data/IMG_4225.MP4 \
   --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
@@ -65,20 +77,13 @@ python "src/quick scripts/cut_video_segments.py" \
 
 ### Configuration
 
-**Edit video files to process:**
-Open `src/quick scripts/transcribe_advanced.py` and modify the `video_files` list at the bottom:
-```python
-video_files = [
-    "data/IMG_4225.MP4",  # Your video file
-    "data/lecture.MOV",   # Add more here
-]
-```
-
-**Adjust chunk size:**
-Edit `CHUNK_SIZE_MINUTES` at the top of the script:
+**Adjust transcription chunk size:**
+Edit `CHUNK_SIZE_MINUTES` at the top of `transcribe_advanced.py`:
 ```python
 CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
 ```
+
+**Note:** Both scripts now run in interactive mode by default. No need to manually edit video file lists!
 
 ## Architecture
 
@@ -103,12 +108,26 @@ transcribe_advanced.py does everything:
 
 ### Key Functions
 
+**Transcription:**
 - `load_optimal_model()` - Loads best available transcription model with fallback
 - `process_chunk()` - Processes a single 2-minute audio chunk
 - `ensure_results_dir()` - Creates timestamped output directory
 - `write_chunk_output()` - Saves chunk results in real-time
 - `format_timestamp()` - Converts seconds to MM:SS format
 - `transcribe_video()` - Main orchestration function
+- `interactive_mode()` - Handles directory and video selection
+- `find_directories_with_videos()` - Scans project for video directories
+- `scan_directory_for_videos()` - Gets video metadata in a directory
+- `get_video_info()` - Extracts duration, size, and date from video
+
+**Video Cutting:**
+- `parse_timestamp()` - Converts time strings (MM:SS.MS) to seconds
+- `parse_time_range()` - Parses single time range (start-end)
+- `parse_ranges()` - Parses comma-separated ranges
+- `cut_segments_moviepy()` - Cuts video using MoviePy
+- `cut_segments_ffmpeg()` - Cuts video using FFmpeg (faster)
+- `get_unique_output_path()` - Generates unique filename with _2, _3, etc.
+- `interactive_mode()` - Handles video selection and range input
 
 ### Technologies Used
 
@@ -211,27 +230,41 @@ All file paths in the codebase:
 - **Helper**: `run_transcription.sh`
 - **Videos**: `data/` (default input location)
 - **Transcription Output**: `results/VideoName_YYYY-MM-DD_HHMMSS/`
-- **Cut Video Output**: `generated_data/VideoName_REEL.MP4`
+- **Cut Video Output**: `generated_data/VideoName_REEL.MP4` (auto-increments: `_REEL_2.MP4`, `_REEL_3.MP4`, etc.)
 - **Dependencies**: `requirements.txt`
 
 ## Testing
 
-To test the script:
+To test the transcription script:
 
 ```bash
 # 1. Place a short test video in data/
 cp /path/to/test.mp4 data/
 
-# 2. Edit the video_files list in transcribe_advanced.py
-# Add "data/test.mp4" to the list
-
-# 3. Run the script
+# 2. Run the script in interactive mode
 source reels_extractor_env/bin/activate
 python "src/quick scripts/transcribe_advanced.py"
 
-# 4. Check results
+# 3. Select data/ directory from the list
+# 4. Select your test video
+# 5. Check results
 ls -la results/
 cat results/*/full_transcript.txt
+```
+
+To test the video cutting script:
+
+```bash
+# 1. Place a test video in data/
+cp /path/to/test.mp4 data/
+
+# 2. Run the script in interactive mode
+python "src/quick scripts/cut_video_segments.py"
+
+# 3. Select your video from the list
+# 4. Enter time ranges (e.g., 0:10-0:20)
+# 5. Check output
+ls -la generated_data/
 ```
 
 ## Important Reminders
