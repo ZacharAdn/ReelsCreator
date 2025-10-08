@@ -176,7 +176,6 @@ output/
 *.out
 
 # Output directories
-results/
 generated_data/
 
 # ===================================
