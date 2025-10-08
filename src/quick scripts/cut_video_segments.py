@@ -132,6 +132,31 @@ def ensure_output_dir():
 
     return output_dir
 
+def get_unique_output_path(output_dir: str, video_name: str) -> str:
+    """
+    Generate unique output path, adding _2, _3, etc. if file exists
+
+    Args:
+        output_dir: Directory for output file
+        video_name: Base video name (without extension)
+
+    Returns:
+        Unique output file path
+    """
+    base_output_path = os.path.join(output_dir, f"{video_name}_REEL.MP4")
+
+    # If file doesn't exist, return the base path
+    if not os.path.exists(base_output_path):
+        return base_output_path
+
+    # File exists, find next available number
+    counter = 2
+    while True:
+        new_output_path = os.path.join(output_dir, f"{video_name}_REEL_{counter}.MP4")
+        if not os.path.exists(new_output_path):
+            return new_output_path
+        counter += 1
+
 def cut_segments_moviepy(video_path: str, time_ranges: List[Tuple[float, float]], output_path: str):
     """
     Cut and concatenate video segments using MoviePy
@@ -253,37 +278,162 @@ def cut_segments_ffmpeg(video_path: str, time_ranges: List[Tuple[float, float]],
 
     print(f"\n✅ Done! Output saved to: {output_path}")
 
+def get_video_info(video_path: str) -> dict:
+    """
+    Get video metadata using MoviePy
+
+    Args:
+        video_path: Path to video file
+
+    Returns:
+        Dictionary with duration, size, and modified date
+    """
+    from datetime import datetime
+
+    video = VideoFileClip(video_path)
+    duration = video.duration
+    video.close()
+
+    file_stat = os.stat(video_path)
+    file_size_mb = file_stat.st_size / (1024 * 1024)
+    modified_date = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d")
+
+    return {
+        'duration': duration,
+        'size_mb': file_size_mb,
+        'modified_date': modified_date
+    }
+
+def scan_video_directory(directory: str = "data") -> List[dict]:
+    """
+    Scan directory for video files and get their metadata
+
+    Args:
+        directory: Directory to scan (default: "data")
+
+    Returns:
+        List of video info dictionaries
+    """
+    video_extensions = ('.mp4', '.MP4', '.mov', '.MOV', '.avi', '.AVI', '.mkv', '.MKV')
+    videos = []
+
+    if not os.path.exists(directory):
+        return []
+
+    for filename in os.listdir(directory):
+        if filename.endswith(video_extensions):
+            video_path = os.path.join(directory, filename)
+            try:
+                info = get_video_info(video_path)
+                videos.append({
+                    'path': video_path,
+                    'name': filename,
+                    'duration': info['duration'],
+                    'size_mb': info['size_mb'],
+                    'modified_date': info['modified_date']
+                })
+            except Exception as e:
+                print(f"⚠️  Warning: Could not read {filename}: {e}")
+
+    return videos
+
+def display_video_list(videos: List[dict]):
+    """
+    Display formatted list of videos with metadata
+
+    Args:
+        videos: List of video info dictionaries
+    """
+    print("\n" + "=" * 80)
+    print("📹 Available Videos")
+    print("=" * 80)
+
+    for i, video in enumerate(videos, 1):
+        duration_str = format_time(video['duration'])
+        print(f"\n{i}. {video['name']}")
+        print(f"   Duration: {duration_str} | Size: {video['size_mb']:.1f}MB | Date: {video['modified_date']}")
+
+    print("\n" + "=" * 80)
+
 def interactive_mode():
     """
     Run the script in interactive mode, prompting for inputs
     """
-    print("=" * 60)
+    print("=" * 80)
     print("VIDEO SEGMENT CUTTER - Interactive Mode")
-    print("=" * 60)
+    print("=" * 80)
 
-    # Get video path
-    print("\nEnter video path (e.g., data/IMG_4225.MP4):")
-    video_path = input("> ").strip()
+    # Scan data directory for videos
+    videos = scan_video_directory("data")
 
-    if not os.path.exists(video_path):
-        print(f"❌ Error: Video file not found: {video_path}")
+    if not videos:
+        print("\n❌ No video files found in data/ directory")
+        print("Please add video files to the directory.")
         sys.exit(1)
 
-    # Get time ranges
-    print("\nEnter time ranges (format: MM:SS.MS-MM:SS.MS, separated by commas):")
-    print("Example: 1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04")
-    ranges_str = input("> ").strip()
+    # Display video list
+    display_video_list(videos)
+
+    # Get video selection
+    print("\nSelect video number (or press Enter to cancel):")
+    selection = input("> ").strip()
+
+    if not selection:
+        print("Cancelled.")
+        sys.exit(0)
 
     try:
-        time_ranges = parse_ranges(ranges_str)
-    except ValueError as e:
-        print(f"❌ Error parsing ranges: {e}")
+        video_index = int(selection) - 1
+        if video_index < 0 or video_index >= len(videos):
+            print(f"❌ Invalid number. Choose between 1 and {len(videos)}")
+            sys.exit(1)
+    except ValueError:
+        print("❌ Please enter a valid number")
         sys.exit(1)
 
-    # Generate output path
+    video_path = videos[video_index]['path']
+    print(f"\n✅ Selected: {videos[video_index]['name']}")
+
+    # Get time ranges interactively
+    print("\n" + "=" * 80)
+    print("Enter time ranges to extract (format: MM:SS.MS-MM:SS.MS)")
+    print("Example: 1:00.26-1:07.16")
+    print("=" * 80)
+
+    time_ranges = []
+    segment_num = 1
+
+    while True:
+        print(f"\nRange #{segment_num} (or press Enter to finish):")
+        range_input = input("> ").strip()
+
+        if not range_input:
+            if len(time_ranges) == 0:
+                print("❌ Please enter at least one range")
+                continue
+            else:
+                break
+
+        try:
+            time_range = parse_time_range(range_input)
+            time_ranges.append(time_range)
+            start_str = format_time(time_range[0])
+            end_str = format_time(time_range[1])
+            duration = time_range[1] - time_range[0]
+            print(f"   ✓ Added: {start_str} - {end_str} ({duration:.1f}s)")
+            segment_num += 1
+        except ValueError as e:
+            print(f"   ❌ Error: {e}")
+            print("   Try again with format: MM:SS.MS-MM:SS.MS")
+
+    # Summary
+    total_duration = sum(end - start for start, end in time_ranges)
+    print(f"\n📊 Total: {len(time_ranges)} ranges | Total duration: {format_time(total_duration)}")
+
+    # Generate unique output path
     output_dir = ensure_output_dir()
     video_name = os.path.splitext(os.path.basename(video_path))[0]
-    output_path = os.path.join(output_dir, f"{video_name}_REEL.MP4")
+    output_path = get_unique_output_path(output_dir, video_name)
 
     # Ask for FFmpeg option
     print("\nUse FFmpeg for faster processing? (y/n, default: n):")
@@ -373,7 +523,7 @@ Examples:
     else:
         output_dir = ensure_output_dir()
         video_name = os.path.splitext(os.path.basename(args.video))[0]
-        output_path = os.path.join(output_dir, f"{video_name}_REEL.MP4")
+        output_path = get_unique_output_path(output_dir, video_name)
 
     # Process video
     try:
