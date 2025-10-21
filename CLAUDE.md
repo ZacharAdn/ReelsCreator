@@ -37,7 +37,7 @@ sudo apt install ffmpeg
 source reels_extractor_env/bin/activate
 
 # Run the script in interactive mode
-python "src/quick scripts/transcribe_advanced.py"
+python src/scripts/transcribe_advanced.py
 
 # The script will:
 # 1. Scan project for directories with videos
@@ -53,7 +53,7 @@ python "src/quick scripts/transcribe_advanced.py"
 source reels_extractor_env/bin/activate
 
 # Interactive mode (recommended)
-python "src/quick scripts/cut_video_segments.py"
+python src/scripts/cut_video_segments.py
 
 # The script will:
 # 1. Scan data/ directory for videos
@@ -64,12 +64,12 @@ python "src/quick scripts/cut_video_segments.py"
 # 6. Generate unique output name (adds _2, _3, etc. if file exists)
 
 # Command-line mode (for automation)
-python "src/quick scripts/cut_video_segments.py" \
+python src/scripts/cut_video_segments.py \
   --video data/IMG_4225.MP4 \
   --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
 
 # Use FFmpeg for faster processing
-python "src/quick scripts/cut_video_segments.py" \
+python src/scripts/cut_video_segments.py \
   --video data/IMG_4225.MP4 \
   --ranges "1:00-2:00" \
   --use-ffmpeg
@@ -138,10 +138,10 @@ transcribe_advanced.py does everything:
 
 ## Output Structure
 
-Each run creates a timestamped directory in `/results/` with format `VideoName_YYYY-MM-DD_HHMMSS`:
+Each run creates a timestamped directory in `/results/` with format `YYYY-MM-DD_HHMMSS_VideoName`:
 
 ```
-results/IMG_4225_2025-10-05_145645/
+results/2025-10-05_145645_IMG_4225/
 ├── chunk_01.txt              # Individual chunk transcripts
 ├── chunk_01_metadata.txt     # Processing stats
 ├── chunk_02.txt
@@ -225,11 +225,11 @@ ls -la results/
 All file paths in the codebase:
 
 - **Scripts**:
-  - `src/quick scripts/transcribe_advanced.py` (transcription)
-  - `src/quick scripts/cut_video_segments.py` (video cutting)
+  - `src/scripts/transcribe_advanced.py` (transcription)
+  - `src/scripts/cut_video_segments.py` (video cutting)
 - **Helper**: `run_transcription.sh`
 - **Videos**: `data/` (default input location)
-- **Transcription Output**: `results/VideoName_YYYY-MM-DD_HHMMSS/`
+- **Transcription Output**: `results/YYYY-MM-DD_HHMMSS_VideoName/`
 - **Cut Video Output**: `generated_data/VideoName_REEL.MP4` (auto-increments: `_REEL_2.MP4`, `_REEL_3.MP4`, etc.)
 - **Dependencies**: `requirements.txt`
 
@@ -243,7 +243,7 @@ cp /path/to/test.mp4 data/
 
 # 2. Run the script in interactive mode
 source reels_extractor_env/bin/activate
-python "src/quick scripts/transcribe_advanced.py"
+python src/scripts/transcribe_advanced.py
 
 # 3. Select data/ directory from the list
 # 4. Select your test video
@@ -259,7 +259,7 @@ To test the video cutting script:
 cp /path/to/test.mp4 data/
 
 # 2. Run the script in interactive mode
-python "src/quick scripts/cut_video_segments.py"
+python src/scripts/cut_video_segments.py
 
 # 3. Select your video from the list
 # 4. Enter time ranges (e.g., 0:10-0:20)

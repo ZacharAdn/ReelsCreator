@@ -25,10 +25,15 @@ import math
 from transformers import pipeline
 from huggingface_hub import hf_hub_download
 from typing import List, Dict
+from pathlib import Path
+import re
 
 # Configuration
 CHUNK_SIZE_MINUTES = 2  # Easily change this value to adjust chunk size
 CHUNK_SIZE_SECONDS = CHUNK_SIZE_MINUTES * 60  # Convert to seconds
+
+# RTL marker pattern (compiled once for efficiency)
+RTL_PATTERN = re.compile(r'[\u202B\u202A\u202C\u200F\u200E]')
 
 def load_optimal_model():
     """
@@ -131,8 +136,9 @@ def ensure_results_dir(video_path):
     Args:
         video_path: Path to the video file being processed
     """
-    # Get base results directory
-    base_results_dir = "/Users/zacharadinaev/Programm/Reels_extractor/results"
+    # Get base results directory (relative to project root)
+    PROJECT_ROOT = Path(__file__).parent.parent.parent
+    base_results_dir = str(PROJECT_ROOT / "results")
 
     # Create base directory if needed
     if not os.path.exists(base_results_dir):
@@ -161,22 +167,24 @@ def ensure_results_dir(video_path):
 
     return timestamped_dir
 
-def clean_rtl_markers(text):
+def clean_rtl_markers(text: str) -> str:
     """
-    Remove RTL (Right-to-Left) control characters from text
-    These are invisible Unicode characters that Whisper adds to Hebrew text
+    Remove RTL (Right-to-Left) control characters from Hebrew text.
+
+    These invisible Unicode characters are added by Whisper:
+    - U+202B: RIGHT-TO-LEFT EMBEDDING
+    - U+202A: LEFT-TO-RIGHT EMBEDDING
+    - U+202C: POP DIRECTIONAL FORMATTING
+    - U+200F: RIGHT-TO-LEFT MARK
+    - U+200E: LEFT-TO-RIGHT MARK
+
+    Args:
+        text: Text containing RTL markers
+
+    Returns:
+        Text with RTL markers removed
     """
-    rtl_chars = [
-        '\u202B',  # RIGHT-TO-LEFT EMBEDDING
-        '\u202A',  # LEFT-TO-RIGHT EMBEDDING
-        '\u202C',  # POP DIRECTIONAL FORMATTING
-        '\u200F',  # RIGHT-TO-LEFT MARK
-        '\u200E',  # LEFT-TO-RIGHT MARK
-    ]
-    cleaned = text
-    for char in rtl_chars:
-        cleaned = cleaned.replace(char, '')
-    return cleaned
+    return RTL_PATTERN.sub('', text)
 
 def format_timestamp(seconds):
     """
@@ -540,7 +548,7 @@ def transcribe_video(video_path):
             print(f"[{format_timestamp(start_time)} - {format_timestamp(end_time)}] {text}")
         
         # Save final summary to file with model info in the same timestamped directory
-        video_name = os.path.splitext(os.path.basename(video_file))[0]
+        video_name = os.path.splitext(os.path.basename(video_path))[0]
         model_suffix = "hebrew" if model_type == "huggingface" else "whisper"
         output_filename = f"{video_name}_final_summary.txt"
         output_file = os.path.join(output_dir, output_filename)
@@ -598,9 +606,9 @@ def transcribe_video(video_path):
 
 if __name__ == "__main__":
     # Run in interactive mode
-    video_file = interactive_mode()
+    video_path = interactive_mode()
 
-    if not video_file:
+    if not video_path:
         print("\n❌ No video selected")
         exit(1)
 
@@ -610,7 +618,7 @@ if __name__ == "__main__":
         print("Starting transcription...")
         print("=" * 80 + "\n")
 
-        result = transcribe_video(video_file)
+        result = transcribe_video(video_path)
 
         print("\n🎉 Hebrew-optimized transcription completed successfully!")
         print("💡 This script uses the best Hebrew models:")

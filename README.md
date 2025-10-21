@@ -88,7 +88,7 @@ sudo apt install ffmpeg
 source reels_extractor_env/bin/activate
 
 # Run the transcription script
-python "src/quick scripts/transcribe_advanced.py"
+python src/scripts/transcribe_advanced.py
 ```
 
 **Interactive Flow:**
@@ -130,7 +130,7 @@ Select video number: 1
 source reels_extractor_env/bin/activate
 
 # Run in interactive mode (recommended)
-python "src/quick scripts/cut_video_segments.py"
+python src/scripts/cut_video_segments.py
 ```
 
 **Interactive Flow:**
@@ -170,18 +170,18 @@ Range #3 (or press Enter to finish):
 
 ```bash
 # Video cutting with command-line arguments
-python "src/quick scripts/cut_video_segments.py" \
+python src/scripts/cut_video_segments.py \
   --video data/IMG_4225.MP4 \
   --ranges "1:00.26-1:07.16, 1:27.64-1:31.72, 1:42.30-1:49.04, 2:00.08-2:06.68"
 
 # Use FFmpeg for faster processing (no re-encoding)
-python "src/quick scripts/cut_video_segments.py" \
+python src/scripts/cut_video_segments.py \
   --video data/IMG_4225.MP4 \
   --ranges "1:00-2:00, 3:00-4:00" \
   --use-ffmpeg
 
 # Custom output location
-python "src/quick scripts/cut_video_segments.py" \
+python src/scripts/cut_video_segments.py \
   --video data/IMG_4225.MP4 \
   --ranges "1:00-2:00" \
   --output my_custom_reel.mp4
@@ -192,7 +192,7 @@ python "src/quick scripts/cut_video_segments.py" \
 Each transcription run creates a timestamped directory in `results/`:
 
 ```
-results/IMG_4225_2025-10-05_145645/
+results/2025-10-05_145645_IMG_4225/
 ├── chunk_01.txt              # First 2-minute chunk transcript
 ├── chunk_01_metadata.txt     # Processing stats for chunk 1
 ├── chunk_02.txt              # Second chunk
@@ -299,13 +299,13 @@ Ensure you have internet connection and ~5GB free space. The models will downloa
 ```
 Reels_extractor/
 ├── src/
-│   └── quick scripts/
+│   └── scripts/
 │       ├── transcribe_advanced.py  # Transcription script
 │       └── cut_video_segments.py   # Video segment cutter
 ├── data/                           # Place your videos here
 ├── results/                        # Transcription output directories
-│   ├── IMG_4225_2025-10-05_145645/
-│   └── lecture_2025-10-05_183042/
+│   ├── 2025-10-05_145645_IMG_4225/
+│   └── 2025-10-05_183042_lecture/
 ├── generated_data/                 # Cut video output directory
 │   ├── IMG_4225_REEL.MP4
 │   ├── IMG_4225_REEL_2.MP4         # Auto-incremented versions

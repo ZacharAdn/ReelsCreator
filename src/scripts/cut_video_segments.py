@@ -30,6 +30,22 @@ import re
 from typing import List, Tuple
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import subprocess
+import shutil
+
+def check_ffmpeg_installed():
+    """Check if FFmpeg is installed and accessible"""
+    if shutil.which('ffmpeg') is None:
+        print("❌ FFmpeg is not installed or not in PATH")
+        print("\nPlease install FFmpeg:")
+        print("  macOS: brew install ffmpeg")
+        print("  Ubuntu/Debian: sudo apt install ffmpeg")
+        print("  Windows: Download from https://ffmpeg.org/download.html")
+        sys.exit(1)
+
+def check_ffprobe_installed():
+    """Check if ffprobe is installed (needed for rotation detection)"""
+    if shutil.which('ffprobe') is None:
+        print("⚠️  Warning: ffprobe not found (rotation detection disabled)")
 
 def parse_timestamp(timestamp: str) -> float:
     """
@@ -157,6 +173,34 @@ def get_unique_output_path(output_dir: str, video_name: str) -> str:
             return new_output_path
         counter += 1
 
+def get_video_rotation(video_path: str) -> int:
+    """
+    Get rotation angle from video metadata
+
+    Args:
+        video_path: Path to video file
+
+    Returns:
+        Rotation angle in degrees (0, 90, 180, 270)
+    """
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+             '-show_entries', 'stream_side_data=rotation',
+             '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+            capture_output=True,
+            text=True
+        )
+
+        if result.stdout.strip():
+            rotation = int(float(result.stdout.strip()))
+            # Normalize to positive angle
+            return abs(rotation) % 360
+    except:
+        pass
+
+    return 0
+
 def cut_segments_moviepy(video_path: str, time_ranges: List[Tuple[float, float]], output_path: str):
     """
     Cut and concatenate video segments using MoviePy
@@ -167,6 +211,14 @@ def cut_segments_moviepy(video_path: str, time_ranges: List[Tuple[float, float]]
         output_path: Path for output video
     """
     print(f"\n🎬 Loading video: {video_path}")
+
+    # Check for rotation metadata
+    rotation = get_video_rotation(video_path)
+    if rotation != 0:
+        print(f"⚠️  Warning: Video has rotation metadata ({rotation}°)")
+        print(f"💡 Recommendation: Use FFmpeg mode (--use-ffmpeg) to preserve rotation")
+        print(f"   Continuing with MoviePy, but rotation may not be preserved...\n")
+
     video = VideoFileClip(video_path)
     video_duration = video.duration
 
@@ -189,7 +241,7 @@ def cut_segments_moviepy(video_path: str, time_ranges: List[Tuple[float, float]]
 
     # Concatenate all segments
     print(f"\n🔗 Concatenating {len(clips)} segments...")
-    final_video = concatenate_videoclips(clips, method="compose")
+    final_video = concatenate_videoclips(clips)
 
     # Calculate total duration
     total_duration = sum(end - start for start, end in time_ranges)
@@ -206,7 +258,9 @@ def cut_segments_moviepy(video_path: str, time_ranges: List[Tuple[float, float]]
         temp_audiofile='temp-audio.m4a',
         remove_temp=True,
         verbose=False,
-        logger=None
+        logger=None,
+        preset='medium',
+        ffmpeg_params=['-pix_fmt', 'yuv420p']
     )
 
     # Cleanup
@@ -244,16 +298,14 @@ def cut_segments_ffmpeg(video_path: str, time_ranges: List[Tuple[float, float]],
             f"[0:a]atrim={start}:{end},asetpts=PTS-STARTPTS[a{i}]"
         )
 
-    # Concatenate all segments
-    v_inputs = ''.join(f"[v{i}]" for i in range(len(time_ranges)))
-    a_inputs = ''.join(f"[a{i}]" for i in range(len(time_ranges)))
-
-    concat_filter = f"{v_inputs}{a_inputs}concat=n={len(time_ranges)}:v=1:a=1[outv][outa]"
+    # Concatenate all segments (video and audio must be interleaved)
+    concat_inputs = ''.join(f"[v{i}][a{i}]" for i in range(len(time_ranges)))
+    concat_filter = f"{concat_inputs}concat=n={len(time_ranges)}:v=1:a=1[outv][outa]"
 
     # Combine all filters
     filter_complex = ';'.join(video_filters + audio_filters + [concat_filter])
 
-    # Build FFmpeg command
+    # Build FFmpeg command (with metadata copy to preserve rotation)
     cmd = [
         'ffmpeg',
         '-i', video_path,
@@ -262,6 +314,8 @@ def cut_segments_ffmpeg(video_path: str, time_ranges: List[Tuple[float, float]],
         '-map', '[outa]',
         '-c:v', 'libx264',
         '-c:a', 'aac',
+        '-map_metadata', '0',  # Copy metadata from input
+        '-movflags', '+faststart',  # Enable fast start for web playback
         '-y',  # Overwrite output file
         output_path
     ]
@@ -396,24 +450,41 @@ def interactive_mode():
 
     # Get time ranges interactively
     print("\n" + "=" * 80)
-    print("Enter time ranges to extract (format: MM:SS.MS-MM:SS.MS)")
-    print("Example: 1:00.26-1:07.16")
+    print("Enter time ranges to extract")
+    print("=" * 80)
+    print("Option 1: Paste all ranges at once (one per line, then type 'done')")
+    print("Option 2: Enter ranges one by one (press Enter after each)")
+    print("\nFormat: MM:SS.MS-MM:SS.MS or MM:SS.MS - MM:SS.MS")
+    print("Example: 3:45.94-3:53.82 or 3:45.94 - 3:53.82")
     print("=" * 80)
 
     time_ranges = []
     segment_num = 1
+    bulk_mode = False
+    bulk_input_lines = []
 
     while True:
-        print(f"\nRange #{segment_num} (or press Enter to finish):")
+        if not bulk_mode:
+            print(f"\nRange #{segment_num} (or press Enter to finish):")
         range_input = input("> ").strip()
 
+        # Check if user wants to finish bulk input
+        if bulk_mode and range_input.lower() == 'done':
+            break
+
+        # Empty input handling
         if not range_input:
-            if len(time_ranges) == 0:
+            if len(time_ranges) == 0 and not bulk_mode:
                 print("❌ Please enter at least one range")
                 continue
+            elif bulk_mode:
+                # Empty line in bulk mode, continue collecting
+                continue
             else:
+                # User pressed Enter to finish
                 break
 
+        # Try to parse as a time range
         try:
             time_range = parse_time_range(range_input)
             time_ranges.append(time_range)
@@ -422,9 +493,20 @@ def interactive_mode():
             duration = time_range[1] - time_range[0]
             print(f"   ✓ Added: {start_str} - {end_str} ({duration:.1f}s)")
             segment_num += 1
+
+            # If this is the first valid range and there are more lines coming,
+            # we might be in bulk paste mode - activate it
+            if segment_num == 2 and not bulk_mode:
+                bulk_mode = True
+                print("\n💡 Bulk mode activated! Paste remaining ranges (type 'done' when finished)")
+
         except ValueError as e:
-            print(f"   ❌ Error: {e}")
-            print("   Try again with format: MM:SS.MS-MM:SS.MS")
+            # If it's the first input and parsing failed, might be starting bulk mode
+            if segment_num == 1 and not bulk_mode:
+                print(f"   ⚠️  Invalid format. Please use: MM:SS.MS-MM:SS.MS")
+            else:
+                print(f"   ❌ Error: {e}")
+                print("   Skipping this line...")
 
     # Summary
     total_duration = sum(end - start for start, end in time_ranges)
@@ -435,9 +517,16 @@ def interactive_mode():
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     output_path = get_unique_output_path(output_dir, video_name)
 
-    # Ask for FFmpeg option
-    print("\nUse FFmpeg for faster processing? (y/n, default: n):")
-    use_ffmpeg = input("> ").strip().lower() == 'y'
+    # Check for rotation and recommend FFmpeg
+    rotation = get_video_rotation(video_path)
+    if rotation != 0:
+        print(f"\n⚠️  Video has rotation metadata ({rotation}°)")
+        print("💡 FFmpeg mode is recommended to preserve rotation correctly")
+        print("\nUse FFmpeg? (y/n, default: y):")
+        use_ffmpeg = input("> ").strip().lower() != 'n'
+    else:
+        print("\nUse FFmpeg for faster processing? (y/n, default: n):")
+        use_ffmpeg = input("> ").strip().lower() == 'y'
 
     # Process video
     if use_ffmpeg:
@@ -447,6 +536,10 @@ def interactive_mode():
 
 def main():
     """Main entry point"""
+    # Check if FFmpeg is installed
+    check_ffmpeg_installed()
+    check_ffprobe_installed()
+
     parser = argparse.ArgumentParser(
         description='Cut and concatenate video segments from time ranges',
         formatter_class=argparse.RawDescriptionHelpFormatter,
