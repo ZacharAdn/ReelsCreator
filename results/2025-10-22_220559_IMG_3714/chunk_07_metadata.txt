@@ -1,0 +1,9 @@
+CHUNK 7 METADATA
+============================================================
+
+Chunk number: 7
+Start time: 12:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 28978.2 seconds (483.0 minutes)
+Language: he
+Number of segments: 60

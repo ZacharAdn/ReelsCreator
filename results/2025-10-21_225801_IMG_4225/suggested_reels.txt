@@ -1,0 +1,37 @@
+SUGGESTED REEL SEGMENTS
+AI-identified engaging moments for short-form content
+══════════════════════════════════════════════════════════════════════
+
+SEGMENT 1
+Time: 0:30 - 0:45
+Why: ** *"...ואז מה שאתה צריך לגעת באמת להבין זה משהו אחר..."*
+
+To extract this segment, run:
+  python src/scripts/cut_video_segments.py \
+    --video [path/to/IMG_4225.MP4] \
+    --ranges "0:30-0:45"
+
+──────────────────────────────────────────────────────────────────────
+
+SEGMENT 2
+Time: 1:00 - 1:30
+Why: ** *"...הוא מוצא קו וגם איזשהו רווח שהוא סולח עליו..."*
+
+To extract this segment, run:
+  python src/scripts/cut_video_segments.py \
+    --video [path/to/IMG_4225.MP4] \
+    --ranges "1:00-1:30"
+
+──────────────────────────────────────────────────────────────────────
+
+SEGMENT 3
+Time: 2:30 - 3:00
+Why: ** *"...זה טריק מגניב... אבל... סתם לא נכנס לזה כרגע..."*
+
+To extract this segment, run:
+  python src/scripts/cut_video_segments.py \
+    --video [path/to/IMG_4225.MP4] \
+    --ranges "2:30-3:00"
+
+──────────────────────────────────────────────────────────────────────
+

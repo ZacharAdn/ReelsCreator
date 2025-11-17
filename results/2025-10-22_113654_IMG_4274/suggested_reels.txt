@@ -1,0 +1,26 @@
+SUGGESTED REEL SEGMENTS
+AI-identified engaging moments for short-form content
+══════════════════════════════════════════════════════════════════════
+
+SEGMENT 1
+Time: 0:30 - 1:00
+Why: ** *"...אתה חייב, חייב, חייב לדעת לעשות את זה בעצמך."*
+
+To extract this segment, run:
+  python src/scripts/cut_video_segments.py \
+    --video [path/to/IMG_4274.MOV] \
+    --ranges "0:30-1:00"
+
+──────────────────────────────────────────────────────────────────────
+
+SEGMENT 2
+Time: 2:00 - 2:30
+Why: ** *"אחרי שנעשה את האמרות ואת הניקוי, אנחנו ניצור עכשיו פיצ'רים חדשים."*
+
+To extract this segment, run:
+  python src/scripts/cut_video_segments.py \
+    --video [path/to/IMG_4274.MOV] \
+    --ranges "2:00-2:30"
+
+──────────────────────────────────────────────────────────────────────
+

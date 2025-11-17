@@ -1,0 +1,9 @@
+CHUNK 12 METADATA
+============================================================
+
+Chunk number: 12
+Start time: 22:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 1746.9 seconds (29.1 minutes)
+Language: he
+Number of segments: 47

@@ -1,0 +1,9 @@
+CHUNK 13 METADATA
+============================================================
+
+Chunk number: 13
+Start time: 24:00.00
+Duration: 35.6 seconds (0.6 minutes)
+Processing time: 2492.5 seconds (41.5 minutes)
+Language: he
+Number of segments: 22

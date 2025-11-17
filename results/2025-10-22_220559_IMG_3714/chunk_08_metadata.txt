@@ -1,0 +1,9 @@
+CHUNK 8 METADATA
+============================================================
+
+Chunk number: 8
+Start time: 14:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 18229.9 seconds (303.8 minutes)
+Language: he
+Number of segments: 46

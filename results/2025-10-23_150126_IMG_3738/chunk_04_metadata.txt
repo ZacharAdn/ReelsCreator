@@ -1,0 +1,9 @@
+CHUNK 4 METADATA
+============================================================
+
+Chunk number: 4
+Start time: 6:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 165.5 seconds (2.8 minutes)
+Language: he
+Number of segments: 2048
