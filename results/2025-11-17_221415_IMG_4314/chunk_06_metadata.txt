@@ -1,0 +1,9 @@
+CHUNK 6 METADATA
+============================================================
+
+Chunk number: 6
+Start time: 10:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 168.1 seconds (2.8 minutes)
+Language: he
+Number of segments: 3084

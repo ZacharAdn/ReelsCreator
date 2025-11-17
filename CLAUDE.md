@@ -56,12 +56,14 @@ source reels_extractor_env/bin/activate
 python src/scripts/cut_video_segments.py
 
 # The script will:
-# 1. Scan data/ directory for videos
-# 2. Display all videos with duration, size, and date
-# 3. Let you select a video
-# 4. Prompt for time ranges one by one (press Enter to finish)
-# 5. Ask if you want to use FFmpeg (faster)
-# 6. Generate unique output name (adds _2, _3, etc. if file exists)
+# 1. Scan project for directories with videos
+# 2. Show all directories and video count
+# 3. Let you select a directory
+# 4. Display all videos with duration, size, and date
+# 5. Let you select a video
+# 6. Prompt for time ranges one by one (press Enter to finish)
+# 7. Ask if you want to use FFmpeg (faster)
+# 8. Generate unique output name (adds _2, _3, etc. if file exists)
 
 # Command-line mode (for automation)
 python src/scripts/cut_video_segments.py \
@@ -116,15 +118,48 @@ python src/scripts/transcribe_advanced.py
 
 **Completely optional** - Works perfectly without Ollama installed.
 
+### NEW: Automated Reel Generation
+
+**LATEST FEATURE**: Automatically generate optimal 45-70 second reels with AI-powered multi-part selection!
+
+**How it works**:
+1. After transcription completes, you'll be prompted: "Auto-generate best reel?"
+2. AI analyzes the full transcript + all reel suggestions
+3. Intelligently selects THE BEST segments (can combine 2-4 non-contiguous parts!)
+4. Automatically cuts and concatenates to create perfect reel
+
+**Example**: AI might select:
+- 4:15-4:45 (hook)
+- 6:20-6:55 (main explanation)
+- 8:10-8:25 (conclusion)
+= 65-second engaging reel!
+
+**Standalone mode**:
+```bash
+python src/scripts/generate_auto_reel.py \
+  --results-dir results/2025-01-17_221415_IMG_4314 \
+  --video data/IMG_4314.MP4
+
+# Or interactive (auto-detect latest):
+python src/scripts/generate_auto_reel.py
+```
+
+**Output**:
+- `generated_data/VideoName_AUTO_REEL.MP4` - Final reel
+- `generated_data/VideoName_AUTO_REEL_metadata.txt` - Selection details
+
+**Requirements**: Ollama with aya-expanse:8b model (same as transcription AI)
+
 ## Architecture
 
-### Two-Script Design
+### Three-Script Design
 
 The codebase is intentionally minimal:
-- **`transcribe_advanced.py`** - Video transcription with chunk processing
+- **`transcribe_advanced.py`** - Video transcription with chunk processing + AI analysis
 - **`cut_video_segments.py`** - Video segment extraction and concatenation
-- **No complex pipeline**: Direct, focused functionality
-- **No external dependencies** between scripts
+- **`generate_auto_reel.py`** - **NEW!** Automated optimal reel generation (45-70s)
+- **Clean separation**: Each script has focused functionality
+- **Composable**: Scripts can be used together or independently
 
 ### Core Functionality
 
@@ -281,12 +316,20 @@ Now works correctly on M1/M2/M3 Macs with MPS acceleration.
 All file paths in the codebase:
 
 - **Scripts**:
-  - `src/scripts/transcribe_advanced.py` (transcription)
+  - `src/scripts/transcribe_advanced.py` (transcription + AI analysis)
   - `src/scripts/cut_video_segments.py` (video cutting)
+  - `src/scripts/generate_auto_reel.py` (automated reel generation) **NEW!**
+- **Tests**: `src/tests/test_cut_video_segments.py` (unit tests)
 - **Helper**: `run_transcription.sh` (automated Ollama management)
 - **Videos**: `data/` (default input location)
 - **Transcription Output**: `results/YYYY-MM-DD_HHMMSS_VideoName/`
-- **Cut Video Output**: `generated_data/VideoName_REEL.MP4` (auto-increments: `_REEL_2.MP4`, `_REEL_3.MP4`, etc.)
+  - `ai_summary.txt` - AI-generated summary and reel suggestions
+  - `suggested_reels.txt` - **NEW!** Copy-paste commands for suggested reels
+  - `full_transcript.txt` - Cumulative transcript
+  - `chunk_*.txt` - Individual chunk transcripts
+- **Generated Reels**: `generated_data/`
+  - `VideoName_REEL.MP4` - Manual cuts (auto-increments: `_REEL_2.MP4`, etc.)
+  - `VideoName_AUTO_REEL.MP4` - **NEW!** AI-generated optimal reels
 - **Dependencies**: `requirements.txt`
 - **Progress Context**: `progress_context/YYYY-MM-DD/` (development history and bug fixes)
 
@@ -341,7 +384,9 @@ ls -la generated_data/
 
 ## Progress Context
 
-**IMPORTANT**: This project maintains detailed development history in `progress_context/`:
+**🚨 CRITICAL - DOCUMENTATION IS MANDATORY 🚨**
+
+This project maintains detailed development history in `progress_context/`. **EVERY code change, feature addition, or bug fix MUST be documented**.
 
 ```
 progress_context/
@@ -352,18 +397,81 @@ progress_context/
     └── ...
 ```
 
-Each entry includes:
-- **Problem description** with error messages
-- **Root cause analysis**
-- **Solution** with code changes
-- **Testing results**
-- **Impact assessment**
+### Why Documentation is Non-Negotiable
 
-**When working on this codebase:**
-1. Check `progress_context/` for recent fixes and context
-2. Document new features/fixes in dated subdirectories
-3. Include before/after code examples
-4. Add testing verification
+1. **Knowledge Preservation**: Prevents losing context about why changes were made
+2. **Regression Prevention**: Future developers understand what was fixed and why
+3. **Debugging Speed**: Detailed problem descriptions help identify similar issues faster
+4. **Collaboration**: Team members can understand changes without asking
+5. **Learning**: Documents solutions to complex problems for future reference
+
+### Documentation Requirements
+
+**EVERY change must include:**
+- ✅ **Problem description** with error messages (if applicable)
+- ✅ **Root cause analysis** explaining what caused the issue
+- ✅ **Solution** with before/after code examples
+- ✅ **Testing results** showing the fix works
+- ✅ **Impact assessment** (files changed, backward compatibility, etc.)
+
+### Mandatory Workflow for Claude Code
+
+**When working on this codebase, you MUST:**
+
+1. ✅ **BEFORE coding**: Check `progress_context/` for recent fixes and context
+2. ✅ **DURING development**: Take notes about the problem, solution approach, and decisions
+3. ✅ **AFTER completion**: Create a numbered markdown file in `progress_context/YYYY-MM-DD/`
+4. ✅ **Include**:
+   - Clear problem statement (user's request or bug description)
+   - User's original message (if in Hebrew, include translation)
+   - Detailed solution with code snippets
+   - Testing verification (command output showing it works)
+   - Files modified with line numbers
+   - Impact on other parts of the codebase
+
+### Documentation Template
+
+Use this structure for all documentation:
+
+```markdown
+# [Feature/Bug/Fix]: Brief Title
+
+**Date**: YYYY-MM-DD
+**Type**: Feature Enhancement | Bug Fix | Refactoring | Documentation
+**Status**: Completed | In Progress | Blocked
+
+## Problem Statement
+[Clear description of what needed to be done or what was broken]
+
+## User Request
+[Original user message, with translation if Hebrew]
+
+## Solution
+[Detailed explanation of the fix/feature]
+
+### Changes Made
+[Before/after code snippets with explanations]
+
+## Testing Results
+[Command output showing the fix works]
+
+## Files Modified
+- `path/to/file.py` (lines X-Y): Description of changes
+
+## Impact
+- **User Experience**: ⬆️ Improved | ➡️ Neutral | ⬇️ Degraded
+- **Code Quality**: ⬆️ Improved | ➡️ Neutral | ⬇️ Degraded
+- **Breaking Changes**: ✅ Yes | ❌ No
+- **Performance**: ⬆️ Faster | ➡️ Neutral | ⬇️ Slower
+```
+
+### Examples
+
+See existing documentation:
+- `progress_context/2025-01-17/06_directory_selection_feature.md` - Feature addition
+- Other entries in dated directories
+
+**❌ NEVER skip documentation - it's as important as the code itself!**
 
 This helps maintain project knowledge and prevents regression.
 

@@ -358,12 +358,12 @@ def get_video_info(video_path: str) -> dict:
         'modified_date': modified_date
     }
 
-def scan_video_directory(directory: str = "data") -> List[dict]:
+def scan_directory_for_videos(directory: str) -> List[dict]:
     """
     Scan directory for video files and get their metadata
 
     Args:
-        directory: Directory to scan (default: "data")
+        directory: Directory to scan
 
     Returns:
         List of video info dictionaries
@@ -391,6 +391,32 @@ def scan_video_directory(directory: str = "data") -> List[dict]:
 
     return videos
 
+def find_directories_with_videos(base_path: str = ".") -> List[str]:
+    """
+    Find all directories in the project that contain video files
+
+    Args:
+        base_path: Base path to search from (default: current directory)
+
+    Returns:
+        List of directory paths containing videos
+    """
+    video_extensions = ('.mp4', '.MP4', '.mov', '.MOV', '.avi', '.AVI', '.mkv', '.MKV')
+    directories_with_videos = []
+
+    # Walk through all directories
+    for root, dirs, files in os.walk(base_path):
+        # Skip hidden directories and common excludes
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', 'venv', 'reels_extractor_env', '__pycache__']]
+
+        # Check if this directory contains any video files
+        has_videos = any(filename.endswith(video_extensions) for filename in files)
+
+        if has_videos:
+            directories_with_videos.append(root)
+
+    return sorted(directories_with_videos)
+
 def display_video_list(videos: List[dict]):
     """
     Display formatted list of videos with metadata
@@ -417,12 +443,50 @@ def interactive_mode():
     print("VIDEO SEGMENT CUTTER - Interactive Mode")
     print("=" * 80)
 
-    # Scan data directory for videos
-    videos = scan_video_directory("data")
+    # Find all directories with videos
+    print("\n🔍 Scanning project for video files...")
+    video_dirs = find_directories_with_videos(".")
+
+    if not video_dirs:
+        print("\n❌ No directories with video files found in project")
+        sys.exit(1)
+
+    # Display directory options
+    print("\n" + "=" * 80)
+    print("📁 Directories with videos:")
+    print("=" * 80)
+    for i, directory in enumerate(video_dirs, 1):
+        # Count videos in this directory
+        videos_in_dir = scan_directory_for_videos(directory)
+        print(f"\n{i}. {directory}")
+        print(f"   ({len(videos_in_dir)} video{'s' if len(videos_in_dir) != 1 else ''})")
+    print("\n" + "=" * 80)
+
+    # Get directory selection
+    print("\nSelect directory number (or press Enter to cancel):")
+    selection = input("> ").strip()
+
+    if not selection:
+        print("Cancelled.")
+        sys.exit(0)
+
+    try:
+        dir_index = int(selection) - 1
+        if dir_index < 0 or dir_index >= len(video_dirs):
+            print(f"❌ Invalid number. Choose between 1 and {len(video_dirs)}")
+            sys.exit(1)
+    except ValueError:
+        print("❌ Please enter a valid number")
+        sys.exit(1)
+
+    selected_dir = video_dirs[dir_index]
+    print(f"\n✅ Selected directory: {selected_dir}")
+
+    # Scan selected directory for videos
+    videos = scan_directory_for_videos(selected_dir)
 
     if not videos:
-        print("\n❌ No video files found in data/ directory")
-        print("Please add video files to the directory.")
+        print(f"\n❌ No video files found in {selected_dir}")
         sys.exit(1)
 
     # Display video list
@@ -447,6 +511,7 @@ def interactive_mode():
 
     video_path = videos[video_index]['path']
     print(f"\n✅ Selected: {videos[video_index]['name']}")
+    print(f"📊 Duration: {format_time(videos[video_index]['duration'])} | Size: {videos[video_index]['size_mb']:.1f}MB")
 
     # Get time ranges interactively
     print("\n" + "=" * 80)

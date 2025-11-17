@@ -9,6 +9,10 @@ Output: generated_data/IMG_4225_REEL.MP4
 
 import os
 import sys
+
+# Add parent directory to path to import from scripts/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+
 from cut_video_segments import (
     parse_timestamp,
     parse_time_range,

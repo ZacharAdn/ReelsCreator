@@ -1,0 +1,9 @@
+CHUNK 14 METADATA
+============================================================
+
+Chunk number: 14
+Start time: 26:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 158.6 seconds (2.6 minutes)
+Language: he
+Number of segments: 3084

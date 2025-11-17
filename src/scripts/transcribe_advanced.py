@@ -699,12 +699,163 @@ def transcribe_video(video_path):
         # NOTE: AI analysis now happens per-chunk in write_chunk_output()
         # No need for end-of-video analysis anymore
 
+        # Generate suggested_reels.txt from ai_summary.txt if it exists
+        create_suggested_reels_file(output_dir, video_path)
+
+        # OPTIONAL: Auto-generate best reel if Ollama available
+        ai_summary_exists = os.path.exists(os.path.join(output_dir, "ai_summary.txt"))
+        if ai_summary_exists:
+            print("\n" + "="*80)
+            print("🎬 AUTOMATED REEL GENERATION")
+            print("="*80)
+            print("\nDo you want to auto-generate the best reel (45-70s)? (y/n)")
+            user_input = input("> ").strip().lower()
+
+            if user_input == 'y':
+                try:
+                    print("\n🚀 Launching automated reel generator...")
+                    from generate_auto_reel import (
+                        parse_ai_summary,
+                        get_full_transcript,
+                        analyze_with_llm,
+                        validate_and_calculate_duration,
+                        generate_reel,
+                        ensure_output_dir as ensure_gen_dir
+                    )
+
+                    # Parse AI data
+                    ai_summary_path = os.path.join(output_dir, "ai_summary.txt")
+                    ai_data = parse_ai_summary(ai_summary_path)
+
+                    if not ai_data['suggestions']:
+                        print("⚠️  No reel suggestions found, skipping auto-generation")
+                    else:
+                        # Get full transcript
+                        full_transcript = get_full_transcript(output_dir)
+
+                        # Analyze with LLM
+                        print(f"🤖 Analyzing with Ollama to find best 45-70s reel...")
+                        print("⏳ This may take 30-60 seconds...")
+
+                        llm_result = analyze_with_llm(full_transcript, ai_data['suggestions'], 45, 70)
+
+                        if llm_result and llm_result['parts']:
+                            # Display result
+                            print(f"\n🎯 Selected {len(llm_result['parts'])} part(s):")
+                            for i, part in enumerate(llm_result['parts'], 1):
+                                print(f"  {i}. {part['time_range']} - {part['reason']}")
+
+                            # Validate and generate
+                            is_valid, actual_duration = validate_and_calculate_duration(llm_result['parts'])
+                            if is_valid:
+                                print(f"⏱️  Total Duration: {actual_duration}s")
+
+                                # Generate reel
+                                gen_output_dir = ensure_gen_dir()
+                                video_name = os.path.splitext(os.path.basename(video_path))[0]
+                                gen_output_path = os.path.join(gen_output_dir, f"{video_name}_AUTO_REEL.MP4")
+
+                                generate_reel(video_path, llm_result['parts'], gen_output_path, use_ffmpeg=True)
+                                print(f"\n✅ Auto-generated reel saved to: {gen_output_path}")
+                        else:
+                            print("⚠️  LLM analysis returned no results")
+
+                except ImportError as e:
+                    print(f"⚠️  Could not import generate_auto_reel: {e}")
+                except Exception as e:
+                    print(f"⚠️  Reel generation failed: {e}")
+                    print("💡 You can run it manually later with:")
+                    print(f"   python src/scripts/generate_auto_reel.py --results-dir {output_dir} --video {video_path}")
+
         return result
         
     finally:
         # Clean up temporary file
         if os.path.exists(temp_audio_path):
             os.unlink(temp_audio_path)
+
+def create_suggested_reels_file(output_dir: str, video_path: str):
+    """
+    Parse ai_summary.txt and create suggested_reels.txt with actionable commands
+
+    Args:
+        output_dir: Directory containing ai_summary.txt
+        video_path: Path to the original video file
+    """
+    ai_summary_path = os.path.join(output_dir, "ai_summary.txt")
+
+    # Check if AI summary exists
+    if not os.path.exists(ai_summary_path):
+        return
+
+    try:
+        # Parse ai_summary.txt to extract reel suggestions
+        with open(ai_summary_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Find the cumulative analysis section with reel suggestions
+        reel_segments = []
+        in_reel_section = False
+
+        for line in content.split('\n'):
+            line_stripped = line.strip()
+
+            # Look for "Best Reel Suggestions" or "Top Reel" section
+            if 'REEL' in line_stripped.upper() and 'SUGGESTION' in line_stripped.upper():
+                in_reel_section = True
+                continue
+
+            # Stop at next major section
+            if in_reel_section and line_stripped.startswith('═'):
+                break
+
+            # Parse reel entries (format: "1. [timestamp] - reason" or "[timestamp] - reason")
+            if in_reel_section and line_stripped:
+                # Try to find timestamp pattern [MM:SS - MM:SS] or MM:SS - MM:SS
+                import re
+                timestamp_match = re.search(r'(\d+:\d+\.?\d*\s*-\s*\d+:\d+\.?\d*)', line_stripped)
+                if timestamp_match:
+                    timestamp = timestamp_match.group(1).strip()
+                    # Extract reason (text after timestamp)
+                    reason = line_stripped.split(timestamp, 1)[-1].strip()
+                    if reason.startswith('-'):
+                        reason = reason[1:].strip()
+
+                    reel_segments.append({
+                        'time_range': timestamp,
+                        'reason': reason if reason else 'Engaging content'
+                    })
+
+        # If no segments found, return silently
+        if not reel_segments:
+            return
+
+        # Create suggested_reels.txt
+        video_name = os.path.basename(video_path)
+        reels_file = os.path.join(output_dir, "suggested_reels.txt")
+
+        with open(reels_file, 'w', encoding='utf-8') as f:
+            f.write("SUGGESTED REEL SEGMENTS\n")
+            f.write("AI-identified engaging moments for short-form content\n")
+            f.write("═" * 70 + "\n\n")
+
+            for i, segment in enumerate(reel_segments, 1):
+                f.write(f"SEGMENT {i}\n")
+                f.write(f"Time: {segment['time_range']}\n")
+                f.write(f"Why: {segment['reason']}\n")
+                f.write(f"\n")
+                f.write(f"To extract this segment, run:\n")
+                f.write(f"  python src/scripts/cut_video_segments.py \\\n")
+                f.write(f"    --video {video_path} \\\n")
+                f.write(f"    --ranges \"{segment['time_range'].replace(' - ', '-').replace(' ', '')}\"\n")
+                f.write("\n" + "─" * 70 + "\n\n")
+
+        print(f"\n📄 Reel suggestions saved to: {reels_file}")
+
+    except Exception as e:
+        # Silent failure - don't disrupt transcription workflow
+        pass
+
 
 # ============================================================================
 # OLLAMA AI ANALYSIS (OPTIONAL)
