@@ -85,6 +85,37 @@ CHUNK_SIZE_MINUTES = 2  # Change to 1, 3, 5, etc.
 
 **Note:** Both scripts now run in interactive mode by default. No need to manually edit video file lists!
 
+### Optional: AI Analysis with Ollama
+
+**NEW FEATURE**: If Ollama is installed and running, transcription automatically includes AI-powered content analysis:
+
+```bash
+# 1. Install Ollama (one-time)
+brew install ollama  # macOS
+# or download from https://ollama.ai
+
+# 2. Start Ollama server
+ollama serve  # Keep running in background
+
+# 3. Download Hebrew-optimized model (one-time, ~5GB)
+ollama pull aya-expanse:8b
+
+# 4. Run transcription as normal - AI analysis is automatic!
+python src/scripts/transcribe_advanced.py
+```
+
+**What you get**:
+- Auto-generated summary (3-5 sentences)
+- Topic extraction (3-5 main topics)
+- Hashtag suggestions (5-7 hashtags)
+- Reel segment recommendations (2-3 clips with timestamps)
+
+**Output files** (added to results directory):
+- `ai_summary.txt` - Summary, topics, hashtags
+- `suggested_reels.txt` - Timestamped reel suggestions with copy-paste commands
+
+**Completely optional** - Works perfectly without Ollama installed.
+
 ## Architecture
 
 ### Two-Script Design
@@ -120,6 +151,12 @@ transcribe_advanced.py does everything:
 - `scan_directory_for_videos()` - Gets video metadata in a directory
 - `get_video_info()` - Extracts duration, size, and date from video
 
+**AI Analysis (Optional - Ollama):**
+- `OllamaAnalyzer` class - Manages Ollama LLM integration
+- `OllamaAnalyzer.is_available()` - Checks if Ollama is running
+- `OllamaAnalyzer.analyze()` - Generates AI analysis (summary, topics, hashtags, reels)
+- `save_ollama_analysis()` - Saves AI results to files
+
 **Video Cutting:**
 - `parse_timestamp()` - Converts time strings (MM:SS.MS) to seconds
 - `parse_time_range()` - Parses single time range (start-end)
@@ -147,7 +184,11 @@ results/2025-10-05_145645_IMG_4225/
 ├── chunk_02.txt
 ├── chunk_02_metadata.txt
 ├── full_transcript.txt       # Cumulative (updated in real-time)
-└── IMG_4225_final_summary.txt  # Complete results
+├── IMG_4225_final_summary.txt  # Complete results
+│
+# Optional: If Ollama is available
+├── ai_summary.txt            # AI-generated summary, topics, hashtags
+└── suggested_reels.txt       # Reel suggestions with timestamps
 ```
 
 ## Supported Models
@@ -200,13 +241,28 @@ ls -la results/
 
 ## Known Issues & Fixes
 
-### MPS Backend Errors (M1 Mac)
+### ✅ FIXED: Device Detection for Hugging Face Pipeline
 
-**Issue**: Whisper models may fail with MPS sparse tensor errors on M1 Macs
+**Previous Issue**: Hebrew model failed with "device type auto not recognized"
 
-**Solution**: The script automatically detects MPS errors and falls back to CPU. No action needed.
+**Solution**: Implemented proper device detection:
+```python
+import torch
+if torch.cuda.is_available():
+    device = 0  # CUDA GPU
+elif torch.backends.mps.is_available():
+    device = "mps"  # Apple Silicon
+else:
+    device = -1  # CPU
+```
 
-**Manual workaround** (if needed): The device is set to `"auto"` in the Hugging Face pipeline. You can modify this to `"cpu"` in the `load_optimal_model()` function.
+Now works correctly on M1/M2/M3 Macs with MPS acceleration.
+
+### ✅ FIXED: Hugging Face Pipeline KeyError
+
+**Previous Issue**: `KeyError: 'chunks'` when using Hebrew model
+
+**Solution**: Added `return_timestamps='word'` parameter and updated chunk processing to handle timestamp tuples properly. Also removes `[PAD]` tokens from output.
 
 ### Memory Issues
 
@@ -227,11 +283,12 @@ All file paths in the codebase:
 - **Scripts**:
   - `src/scripts/transcribe_advanced.py` (transcription)
   - `src/scripts/cut_video_segments.py` (video cutting)
-- **Helper**: `run_transcription.sh`
+- **Helper**: `run_transcription.sh` (automated Ollama management)
 - **Videos**: `data/` (default input location)
 - **Transcription Output**: `results/YYYY-MM-DD_HHMMSS_VideoName/`
 - **Cut Video Output**: `generated_data/VideoName_REEL.MP4` (auto-increments: `_REEL_2.MP4`, `_REEL_3.MP4`, etc.)
 - **Dependencies**: `requirements.txt`
+- **Progress Context**: `progress_context/YYYY-MM-DD/` (development history and bug fixes)
 
 ## Testing
 
@@ -281,6 +338,34 @@ ls -la generated_data/
 - **Medium video (20 min)**: ~30-40 minutes processing time
 - **Long video (60 min)**: ~2 hours processing time
 - **Processing speed**: ~3x real-time (varies by model and hardware)
+
+## Progress Context
+
+**IMPORTANT**: This project maintains detailed development history in `progress_context/`:
+
+```
+progress_context/
+└── YYYY-MM-DD/
+    ├── README.md           # Daily summary
+    ├── 01_feature.md       # Individual feature/fix documentation
+    ├── 02_bugfix.md        # Detailed bug analysis and solution
+    └── ...
+```
+
+Each entry includes:
+- **Problem description** with error messages
+- **Root cause analysis**
+- **Solution** with code changes
+- **Testing results**
+- **Impact assessment**
+
+**When working on this codebase:**
+1. Check `progress_context/` for recent fixes and context
+2. Document new features/fixes in dated subdirectories
+3. Include before/after code examples
+4. Add testing verification
+
+This helps maintain project knowledge and prevents regression.
 
 ## Future Enhancements (Optional)
 

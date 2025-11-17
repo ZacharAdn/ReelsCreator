@@ -12,3 +12,6 @@ huggingface-hub>=0.16.0
 
 # Video/Audio processing
 moviepy>=1.0.3
+
+# Ollama integration (optional - for AI content analysis)
+requests>=2.31.0  # HTTP client for Ollama API
