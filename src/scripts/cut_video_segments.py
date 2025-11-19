@@ -305,7 +305,9 @@ def cut_segments_ffmpeg(video_path: str, time_ranges: List[Tuple[float, float]],
     # Combine all filters
     filter_complex = ';'.join(video_filters + audio_filters + [concat_filter])
 
-    # Build FFmpeg command (with metadata copy to preserve rotation)
+    # Build FFmpeg command
+    # Note: Clear rotation metadata since FFmpeg already applies rotation during re-encoding
+    # This prevents "double rotation" where pixels are rotated but metadata says rotate again
     cmd = [
         'ffmpeg',
         '-i', video_path,
@@ -314,7 +316,7 @@ def cut_segments_ffmpeg(video_path: str, time_ranges: List[Tuple[float, float]],
         '-map', '[outa]',
         '-c:v', 'libx264',
         '-c:a', 'aac',
-        '-map_metadata', '0',  # Copy metadata from input
+        '-metadata:s:v', 'rotate=0',  # Clear rotation metadata (already applied by FFmpeg)
         '-movflags', '+faststart',  # Enable fast start for web playback
         '-y',  # Overwrite output file
         output_path

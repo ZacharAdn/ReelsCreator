@@ -130,6 +130,66 @@ def parse_ai_summary(summary_path: str) -> Dict:
     return result
 
 
+def get_chunk_summaries_from_ai_analysis(results_dir: str) -> str:
+    """
+    Extract per-chunk summaries with timestamps from ai_summary.txt
+
+    This provides the LLM with a structured view of ALL video content,
+    not just truncated raw transcript.
+
+    Args:
+        results_dir: Results directory containing ai_summary.txt
+
+    Returns:
+        Formatted string with all chunk summaries and timestamps
+    """
+    ai_summary_path = os.path.join(results_dir, "ai_summary.txt")
+
+    if not os.path.exists(ai_summary_path):
+        return ""
+
+    with open(ai_summary_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    summaries = []
+
+    # Parse all chunk summaries
+    # Pattern: CHUNK X ANALYSIS ... Time: MM:SS.ss - MM:SS.ss ... Summary: ...
+    chunk_pattern = re.compile(
+        r'CHUNK\s+(\d+)\s+ANALYSIS.*?Time:\s*([\d:.]+\s*-\s*[\d:.]+).*?Summary:\s*(.*?)(?=Topics:|$)',
+        re.DOTALL | re.IGNORECASE
+    )
+
+    matches = chunk_pattern.findall(content)
+
+    for chunk_num, time_range, summary in matches:
+        # Clean up the summary
+        summary_clean = summary.strip()
+        # Limit each summary to prevent overflow
+        if len(summary_clean) > 300:
+            summary_clean = summary_clean[:297] + "..."
+
+        summaries.append({
+            'chunk': int(chunk_num),
+            'time': time_range.strip(),
+            'summary': summary_clean
+        })
+
+    # Sort by chunk number
+    summaries.sort(key=lambda x: x['chunk'])
+
+    if not summaries:
+        return ""
+
+    # Format for LLM consumption
+    result = "VIDEO CONTENT BY TIMESTAMP (AI-analyzed summaries):\n\n"
+    for s in summaries:
+        result += f"[{s['time']}] Chunk {s['chunk']}:\n"
+        result += f"{s['summary']}\n\n"
+
+    return result
+
+
 def get_full_transcript(results_dir: str) -> str:
     """
     Read the full transcript from full_transcript.txt
@@ -158,13 +218,14 @@ def get_full_transcript(results_dir: str) -> str:
     return content
 
 
-def analyze_with_llm(transcript: str, suggestions: List[Dict], min_duration: int = 45, max_duration: int = 70) -> Dict:
+def analyze_with_llm(chunk_summaries: str, suggestions: List[Dict], cumulative_summary: str = "", min_duration: int = 45, max_duration: int = 70) -> Dict:
     """
-    Use Ollama to select the best multi-part reel from suggestions
+    Use Ollama to select the best multi-part reel from video content
 
     Args:
-        transcript: Full video transcript
-        suggestions: List of reel suggestions from AI analysis
+        chunk_summaries: Formatted chunk summaries with timestamps from AI analysis
+        suggestions: List of reel suggestions from AI analysis (if any)
+        cumulative_summary: Overall video summary
         min_duration: Minimum reel duration in seconds
         max_duration: Maximum reel duration in seconds
 
@@ -180,50 +241,56 @@ def analyze_with_llm(transcript: str, suggestions: List[Dict], min_duration: int
                 f"{i+1}. {s['time_range']} - {s['reason']}"
                 for i, s in enumerate(suggestions)
             ])
-            suggestions_section = f"\nAVAILABLE SUGGESTIONS:\n{suggestions_text}\n"
+            suggestions_section = f"\nPRE-DEFINED SUGGESTIONS (use as guidance):\n{suggestions_text}\n"
         else:
-            suggestions_section = "\nNO PRE-DEFINED SUGGESTIONS - Analyze the full transcript and find the best segments yourself.\n"
+            suggestions_section = ""
 
-        # Limit transcript for faster processing
-        limited_transcript = transcript[:4000]
-        if len(transcript) > 4000:
-            limited_transcript += "\n\n... (transcript continues) ..."
+        # Include cumulative summary if available
+        if cumulative_summary:
+            summary_section = f"\nOVERALL VIDEO THEME:\n{cumulative_summary}\n"
+        else:
+            summary_section = ""
 
-        # Build the enhanced prompt
+        # Build the enhanced prompt with chunk summaries (not truncated transcript)
         prompt = f"""You are an expert content strategist for short-form video (Reels/TikTok/Shorts).
 
-GOAL: Select THE BEST {min_duration}-{max_duration} second reel from this video.
+GOAL: Create a SHORT reel of exactly {min_duration}-{max_duration} seconds total.
 
-The reel CAN be non-contiguous (2-4 separate parts) if it creates better narrative flow.
+Each chunk below is ~2 minutes long. You must select SHORT PORTIONS (15-30 seconds each) from within these chunks, NOT entire chunks.
+{summary_section}
+{chunk_summaries}
 {suggestions_section}
-FULL TRANSCRIPT (for context):
-{limited_transcript}
+CRITICAL DURATION CONSTRAINT:
+- Target: {min_duration}-{max_duration} seconds TOTAL (NOT minutes!)
+- Each part should be 15-30 seconds
+- Example: 3 parts of 20 seconds each = 60 seconds total
+- DO NOT select entire 2-minute chunks!
 
 SELECTION CRITERIA:
-✅ Hook: Opens with attention-grabbing statement
-✅ Standalone Value: Makes sense without full video context
-✅ Completeness: Tells a complete micro-story
-✅ Educational/Entertaining: Clear value proposition
-✅ Natural Flow: Parts connect logically (even if non-contiguous)
+1. STANDALONE VALUE - Must make sense without watching the full video
+2. ENGAGING CONTENT - Educational, entertaining, or insightful
+3. COMPLETENESS - Tells a complete micro-story
 
-IMPORTANT CONSTRAINTS:
-- Total duration: {min_duration}-{max_duration} seconds
-- Can combine 2-4 parts (skip boring middle sections)
-- Must use MM:SS.MS - MM:SS.MS format for timestamps
-- Parts should be in chronological order
+EXAMPLE OUTPUT:
+PARTS:
+1. [8:15 - 8:35] Explains the key concept clearly (20s)
+2. [12:40 - 13:00] Gives practical example (20s)
+3. [18:30 - 18:50] Summarizes the insight (20s)
 
-OUTPUT FORMAT (EXACTLY):
+TOTAL_DURATION: 60s
+
+YOUR OUTPUT (use this exact format):
 
 PARTS:
-1. [MM:SS - MM:SS] Brief reason
-2. [MM:SS - MM:SS] Brief reason (if needed)
-3. [MM:SS - MM:SS] Brief reason (if needed)
+1. [MM:SS - MM:SS] Reason (duration in seconds)
+2. [MM:SS - MM:SS] Reason (if needed)
+3. [MM:SS - MM:SS] Reason (if needed)
 
 TOTAL_DURATION: Xs
 
-NARRATIVE: 1-2 sentence explanation of why this combination works
+NARRATIVE: Why these specific short segments work well together.
 
-TITLE: Engaging title for social media
+TITLE: Engaging title
 """
 
         # Call Ollama API
@@ -355,6 +422,59 @@ def validate_and_calculate_duration(parts: List[Dict]) -> Tuple[bool, int]:
     except Exception as e:
         print(f"⚠️  Duration validation failed: {e}")
         return False, 0
+
+
+def validate_llm_selection(llm_result: Dict, min_duration: int = 45, max_duration: int = 70) -> Tuple[bool, str]:
+    """
+    Validate LLM selection before cutting video
+
+    Checks:
+    1. Has valid parts
+    2. All parts have parseable timestamps
+    3. Duration is within range
+
+    Args:
+        llm_result: Result from analyze_with_llm()
+        min_duration: Minimum acceptable duration
+        max_duration: Maximum acceptable duration
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Check for valid parts
+    if not llm_result or 'parts' not in llm_result:
+        return False, "No parts in LLM result"
+
+    parts = llm_result['parts']
+    if not parts or len(parts) == 0:
+        return False, "Empty parts list"
+
+    # Validate each part has parseable timestamp
+    for i, part in enumerate(parts, 1):
+        if 'time_range' not in part:
+            return False, f"Part {i} missing time_range"
+
+        try:
+            start, end = parse_time_range(part['time_range'])
+            if start >= end:
+                return False, f"Part {i} has invalid range: start ({start}) >= end ({end})"
+            if end - start < 5:
+                return False, f"Part {i} is too short: {end - start:.1f}s (minimum 5s)"
+        except Exception as e:
+            return False, f"Part {i} has unparseable timestamp '{part['time_range']}': {e}"
+
+    # Check total duration
+    is_valid, total_duration = validate_and_calculate_duration(parts)
+    if not is_valid:
+        return False, "Could not calculate total duration"
+
+    if total_duration < min_duration:
+        return False, f"Total duration {total_duration}s is below minimum {min_duration}s"
+
+    if total_duration > max_duration + 10:  # Allow 10s grace period
+        return False, f"Total duration {total_duration}s exceeds maximum {max_duration}s by too much"
+
+    return True, "Valid selection"
 
 
 def generate_reel(video_path: str, parts: List[Dict], output_path: str, use_ffmpeg: bool = True):
@@ -560,27 +680,57 @@ Examples:
         print("💡 Run transcription with Ollama enabled first")
         sys.exit(1)
 
-    # Get full transcript
-    print("\n📖 Reading full transcript...")
-    full_transcript = get_full_transcript(results_dir)
-    if full_transcript:
-        print(f"✅ Transcript loaded ({len(full_transcript)} characters)")
+    # Get chunk summaries (these have timestamps and are already LLM-analyzed)
+    print("\n📖 Extracting chunk summaries with timestamps...")
+    chunk_summaries = get_chunk_summaries_from_ai_analysis(results_dir)
+    if chunk_summaries:
+        # Count chunks
+        chunk_count = chunk_summaries.count("Chunk ")
+        print(f"✅ Loaded {chunk_count} chunk summaries with timestamps")
     else:
-        print("⚠️  Could not load transcript, proceeding with suggestions only")
+        print("⚠️  Could not load chunk summaries, will use suggestions only")
 
     # Analyze with LLM
     print(f"\n🤖 Analyzing with Ollama to find best {args.min_duration}-{args.max_duration}s reel...")
     print("⏳ This may take 30-60 seconds...")
 
-    llm_result = analyze_with_llm(
-        full_transcript,
-        ai_data['suggestions'],
-        args.min_duration,
-        args.max_duration
-    )
+    # Try LLM analysis with validation and retry
+    MAX_ATTEMPTS = 3
+    llm_result = None
 
-    if not llm_result or not llm_result['parts']:
-        print("❌ LLM analysis failed or returned no parts")
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        if attempt > 1:
+            print(f"\n🔄 Retry attempt {attempt}/{MAX_ATTEMPTS}...")
+
+        llm_result = analyze_with_llm(
+            chunk_summaries,
+            ai_data['suggestions'],
+            ai_data.get('cumulative_summary', ''),
+            args.min_duration,
+            args.max_duration
+        )
+
+        if not llm_result or not llm_result.get('parts'):
+            print(f"⚠️  Attempt {attempt}: LLM returned no parts")
+            continue
+
+        # Validate the selection
+        is_valid, error_msg = validate_llm_selection(
+            llm_result,
+            args.min_duration,
+            args.max_duration
+        )
+
+        if is_valid:
+            print(f"✅ Selection validated on attempt {attempt}")
+            break
+        else:
+            print(f"⚠️  Attempt {attempt} validation failed: {error_msg}")
+            llm_result = None
+
+    # If all attempts failed, try fallback
+    if not llm_result or not llm_result.get('parts'):
+        print("\n❌ All LLM attempts failed")
 
         # Fallback to first suggestion (if available)
         if ai_data['suggestions'] and len(ai_data['suggestions']) > 0:
