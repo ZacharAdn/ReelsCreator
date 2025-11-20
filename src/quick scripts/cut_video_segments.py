@@ -28,7 +28,7 @@ import sys
 import argparse
 import re
 from typing import List, Tuple
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy import VideoFileClip, concatenate_videoclips
 import subprocess
 
 def parse_timestamp(timestamp: str) -> float:

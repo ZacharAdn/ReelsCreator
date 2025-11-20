@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 ADVANCED Hebrew-optimized transcription script using the best models from the full pipeline
 
@@ -17,7 +18,8 @@ Configuration:
 
 import whisper
 import os
-from moviepy.editor import VideoFileClip
+import sys
+from moviepy import VideoFileClip
 import tempfile
 from datetime import datetime
 import time
@@ -25,6 +27,12 @@ import math
 from transformers import pipeline
 from huggingface_hub import hf_hub_download
 from typing import List, Dict
+
+# Fix Windows console encoding for emojis
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # Configuration
 CHUNK_SIZE_MINUTES = 2  # Easily change this value to adjust chunk size
@@ -131,8 +139,9 @@ def ensure_results_dir(video_path):
     Args:
         video_path: Path to the video file being processed
     """
-    # Get base results directory
-    base_results_dir = "/Users/zacharadinaev/Programm/Reels_extractor/results"
+    # Get base results directory (relative to project root)
+    script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_results_dir = os.path.join(script_dir, "results")
 
     # Create base directory if needed
     if not os.path.exists(base_results_dir):
@@ -449,7 +458,7 @@ def transcribe_video(video_path):
     
     try:
         # Extract audio to temporary file
-        video.audio.write_audiofile(temp_audio_path, verbose=False, logger=None)
+        video.audio.write_audiofile(temp_audio_path, logger=None)
         video.close()
         
         # Load optimal model with Hebrew support
@@ -597,12 +606,20 @@ def transcribe_video(video_path):
             os.unlink(temp_audio_path)
 
 if __name__ == "__main__":
-    # Run in interactive mode
-    video_file = interactive_mode()
+    # Check for auto mode (batch processing)
+    auto_video_path = os.environ.get('AUTO_VIDEO_PATH')
 
-    if not video_file:
-        print("\n❌ No video selected")
-        exit(1)
+    if auto_video_path:
+        # Auto mode - use provided video path
+        video_file = auto_video_path
+        print(f"🎬 Auto mode: Processing {os.path.basename(video_file)}")
+    else:
+        # Run in interactive mode
+        video_file = interactive_mode()
+
+        if not video_file:
+            print("\n❌ No video selected")
+            exit(1)
 
     # Process the selected video
     try:
