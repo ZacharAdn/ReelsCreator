@@ -230,27 +230,29 @@ results/2025-10-05_145645_IMG_4225/
 
 The script tries these models in order (automatic fallback):
 
-1. **Hebrew-Optimized (Hugging Face)**
-   - Model: `imvladikon/wav2vec2-large-xlsr-53-hebrew`
-   - Best for pure Hebrew content
-   - Fastest, but may fail on some systems
-
-2. **Whisper large-v3-turbo**
-   - 5.4x faster than large
+1. **Whisper large-v3-turbo** (Default - Recommended)
+   - Best transcription quality for Hebrew
+   - 5.4x faster than Whisper large
    - Great for mixed Hebrew-English
-   - Good balance of speed and accuracy
+   - Excellent balance of speed and accuracy
 
-3. **Whisper large (fallback)**
+2. **Whisper large** (First fallback)
    - Most reliable
    - Works on all systems
-   - Slower but highest quality
+   - Highest quality but slower
+
+3. **Hebrew-Optimized wav2vec2** (Final fallback)
+   - Model: `imvladikon/wav2vec2-large-xlsr-53-hebrew`
+   - Fastest processing
+   - Note: May produce lower quality transcription with character-level artifacts
+   - Only used if Whisper models fail to load
 
 ## Common Development Patterns
 
 When modifying this codebase:
 
 1. **Keep it simple**: This is intentionally a single-file script
-2. **Preserve fallback logic**: Hebrew model → Turbo → Large is important
+2. **Preserve fallback logic**: Whisper turbo → Whisper large → Hebrew model is important
 3. **Maintain real-time output**: The `write_chunk_output()` calls are critical
 4. **Test with Hebrew content**: Always test with mixed Hebrew-English videos
 5. **Don't break timestamping**: The YYYY-MM-DD_HHMMSS directory structure is essential

@@ -37,40 +37,44 @@ RTL_PATTERN = re.compile(r'[\u202B\u202A\u202C\u200F\u200E]')
 
 def load_optimal_model():
     """
-    Load the best available model with Hebrew optimization from Hugging Face
+    Load the best available model - prioritizes Whisper for quality, with Hebrew-specific model as fallback
     """
     try:
-        print("🇮🇱 Loading Hebrew-optimized model from Hugging Face...")
-
-        # Detect available device
-        import torch
-        if torch.cuda.is_available():
-            device = 0  # First CUDA GPU
-        elif torch.backends.mps.is_available():
-            device = "mps"  # Apple Silicon
-        else:
-            device = -1  # CPU
-
-        transcriber = pipeline(
-            "automatic-speech-recognition",
-            model="imvladikon/wav2vec2-large-xlsr-53-hebrew",
-            device=device
-        )
-        print("✅ Hebrew-optimized model loaded successfully!")
-        return transcriber, "huggingface"
+        print("🚀 Loading Whisper large-v3-turbo (best quality for Hebrew)...")
+        model = whisper.load_model("large-v3-turbo")
+        print("✅ Whisper large-v3-turbo loaded successfully!")
+        return model, "whisper"
     except Exception as e:
-        print(f"⚠️  Hebrew model failed ({e}), trying Whisper large-v3-turbo...")
-        
-        # Fallback to Whisper
+        print(f"⚠️  Whisper turbo failed ({e}), trying Whisper large...")
+
+        # Fallback to Whisper large
         try:
-            print("🚀 Loading large-v3-turbo...")
-            model = whisper.load_model("large-v3-turbo")
-            print("✅ Large-v3-turbo model loaded!")
+            print("🚀 Loading Whisper large...")
+            model = whisper.load_model("large")
+            print("✅ Whisper large loaded!")
             return model, "whisper"
         except Exception as e:
-            print(f"⚠️  Turbo model failed, using large...")
-            model = whisper.load_model("large")
-            return model, "whisper"
+            print(f"⚠️  Whisper large failed ({e}), trying Hebrew-specific model...")
+
+            # Final fallback to Hebrew wav2vec2
+            print("🇮🇱 Loading Hebrew-optimized model from Hugging Face...")
+
+            # Detect available device
+            import torch
+            if torch.cuda.is_available():
+                device = 0  # First CUDA GPU
+            elif torch.backends.mps.is_available():
+                device = "mps"  # Apple Silicon
+            else:
+                device = -1  # CPU
+
+            transcriber = pipeline(
+                "automatic-speech-recognition",
+                model="imvladikon/wav2vec2-large-xlsr-53-hebrew",
+                device=device
+            )
+            print("✅ Hebrew-optimized model loaded (note: may have lower quality)")
+            return transcriber, "huggingface"
 
 def process_chunk(model, model_type, audio_path, start_time=0, duration=None):
     """

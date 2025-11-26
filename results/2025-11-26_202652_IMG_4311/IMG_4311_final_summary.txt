@@ -1,0 +1,21 @@
+FINAL TRANSCRIPTION SUMMARY
+============================================================
+
+Video: ./data/ran1/IMG_4311.MOV
+Model used: whisper
+Language detected: he
+Video Length: N/A
+Output directory: results/2025-11-26_202652_IMG_4311
+
+Full transcript:
+----------------------------------------
+ תכף אנחנו נראה איך אנחנו נמשיך עם הדבר הזה שנייה זה שנתחיל רק
+
+Segments with timestamps:
+----------------------------------------
+[0:00.00 - 0:03.30] תכף אנחנו נראה איך אנחנו נמשיך עם הדבר הזה
+[0:04.92 - 0:06.34] שנייה זה שנתחיל רק
+
+PROCESSING INFORMATION
+----------------------------------------
+Total processing time: 17.5 seconds (0.29 minutes)

@@ -1,0 +1,9 @@
+CHUNK 3 METADATA
+============================================================
+
+Chunk number: 3
+Start time: 4:00.00
+Duration: 40.8 seconds (0.7 minutes)
+Processing time: 220.8 seconds (3.7 minutes)
+Language: he
+Number of segments: 28
