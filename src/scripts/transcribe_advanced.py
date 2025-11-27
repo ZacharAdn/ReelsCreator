@@ -39,19 +39,31 @@ def load_optimal_model():
     """
     Load the best available model - prioritizes Whisper for quality, with Hebrew-specific model as fallback
     """
+    # Detect available device for GPU acceleration
+    import torch
+
+    # Note: MPS support in Whisper is currently unstable, defaulting to CPU for reliability
+    # CUDA still works well if available
+    if torch.cuda.is_available():
+        device = "cuda"
+        print("🎮 GPU acceleration: CUDA detected")
+    else:
+        device = "cpu"
+        print("💻 Using CPU (MPS support disabled due to Whisper compatibility issues)")
+
     try:
-        print("🚀 Loading Whisper large-v3-turbo (best quality for Hebrew)...")
-        model = whisper.load_model("large-v3-turbo")
-        print("✅ Whisper large-v3-turbo loaded successfully!")
+        print(f"🚀 Loading Whisper large-v3-turbo on {device.upper()}...")
+        model = whisper.load_model("large-v3-turbo", device=device)
+        print(f"✅ Whisper large-v3-turbo loaded successfully on {device.upper()}!")
         return model, "whisper"
     except Exception as e:
         print(f"⚠️  Whisper turbo failed ({e}), trying Whisper large...")
 
         # Fallback to Whisper large
         try:
-            print("🚀 Loading Whisper large...")
-            model = whisper.load_model("large")
-            print("✅ Whisper large loaded!")
+            print(f"🚀 Loading Whisper large on {device.upper()}...")
+            model = whisper.load_model("large", device=device)
+            print(f"✅ Whisper large loaded on {device.upper()}!")
             return model, "whisper"
         except Exception as e:
             print(f"⚠️  Whisper large failed ({e}), trying Hebrew-specific model...")
@@ -579,13 +591,16 @@ def transcribe_video(video_path):
                 chunk_start = i * CHUNK_SIZE_SECONDS
                 chunk_duration = min(CHUNK_SIZE_SECONDS, video_duration - chunk_start)
 
-                print(f"\n🔄 Processing chunk {i+1}/{num_chunks}")
+                # Get current time for progress tracking
+                current_time = datetime.now().strftime("%H:%M:%S")
+                print(f"\n🔄 Processing chunk {i+1}/{num_chunks} (started at {current_time})")
                 print(f"⏱️  Time range: {format_timestamp(chunk_start)} - {format_timestamp(chunk_start + chunk_duration)}")
 
                 result, chunk_time = process_chunk(model, model_type, temp_audio_path,
                                                  start_time=chunk_start, duration=chunk_duration)
 
-                print(f"✅ Chunk {i+1} completed in {chunk_time:.1f} seconds")
+                completion_time = datetime.now().strftime("%H:%M:%S")
+                print(f"✅ Chunk {i+1} completed in {chunk_time:.1f} seconds (finished at {completion_time})")
                 print("\nTranscript for this chunk:")
                 print("-" * 40)
                 print(result['text'])

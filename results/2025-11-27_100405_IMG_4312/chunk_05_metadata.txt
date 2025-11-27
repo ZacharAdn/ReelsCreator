@@ -1,0 +1,9 @@
+CHUNK 5 METADATA
+============================================================
+
+Chunk number: 5
+Start time: 8:00.00
+Duration: 120.0 seconds (2.0 minutes)
+Processing time: 1481.1 seconds (24.7 minutes)
+Language: he
+Number of segments: 28
